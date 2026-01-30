@@ -13,7 +13,7 @@
 
 ```powershell
 # 1. 进入项目目录
-cd D:\pocker\TexasSolver-console
+cd solver
 
 # 2. 清理旧的构建缓存（如果之前编译过或移动过项目目录）
 Remove-Item -Recurse -Force build
@@ -29,15 +29,14 @@ cmake --build . --config Release
 
 ### 编译产物
 
-编译完成后，`console_solver.exe` 位于 `build/` 目录下：
+编译完成后，`console_solver.exe` 位于 `build/` 目录下
 
-```
-D:\pocker\TexasSolver-console\build\console_solver.exe
-```
 
 ## Linux 编译说明
+```bash
 mkdir build
 cd build
 cmake ..
 make install
 cd ../install
+```
