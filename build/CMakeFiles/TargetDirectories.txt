@@ -1,0 +1,15 @@
+D:/pocker/TexasSolver-console/build/CMakeFiles/TexasSolver.dir
+D:/pocker/TexasSolver-console/build/CMakeFiles/console_solver.dir
+D:/pocker/TexasSolver-console/build/CMakeFiles/edit_cache.dir
+D:/pocker/TexasSolver-console/build/CMakeFiles/rebuild_cache.dir
+D:/pocker/TexasSolver-console/build/CMakeFiles/list_install_components.dir
+D:/pocker/TexasSolver-console/build/CMakeFiles/install.dir
+D:/pocker/TexasSolver-console/build/CMakeFiles/install/local.dir
+D:/pocker/TexasSolver-console/build/CMakeFiles/install/strip.dir
+D:/pocker/TexasSolver-console/build/ext/fmt/CMakeFiles/fmt.dir
+D:/pocker/TexasSolver-console/build/ext/fmt/CMakeFiles/edit_cache.dir
+D:/pocker/TexasSolver-console/build/ext/fmt/CMakeFiles/rebuild_cache.dir
+D:/pocker/TexasSolver-console/build/ext/fmt/CMakeFiles/list_install_components.dir
+D:/pocker/TexasSolver-console/build/ext/fmt/CMakeFiles/install.dir
+D:/pocker/TexasSolver-console/build/ext/fmt/CMakeFiles/install/local.dir
+D:/pocker/TexasSolver-console/build/ext/fmt/CMakeFiles/install/strip.dir

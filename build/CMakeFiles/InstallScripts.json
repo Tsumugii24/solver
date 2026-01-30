@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/pocker/TexasSolver-console/build/cmake_install.cmake",
+		"D:/pocker/TexasSolver-console/build/ext/fmt/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
