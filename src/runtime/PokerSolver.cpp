@@ -4,6 +4,7 @@
 
 #include "runtime/PokerSolver.h"
 #include <iomanip>
+#include <chrono>
 
 PokerSolver::PokerSolver() {
 
@@ -85,13 +86,25 @@ void PokerSolver::train(string p1_range, string p2_range, string boards, string 
 }
 
 void PokerSolver::dump_strategy(string dump_file,int dump_rounds) {
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    // dumps 函数内部会显示进度条
     json dump_json = this->solver->dumps(false,dump_rounds);
+    
+    auto gen_time = std::chrono::high_resolution_clock::now();
+    auto gen_duration = std::chrono::duration_cast<std::chrono::milliseconds>(gen_time - start_time).count();
+    cout << "Generation time: " << gen_duration / 1000.0 << "s" << endl;
+    
+    cout << "Writing to file: " << dump_file << "..." << flush;
     ofstream fileWriter;
     fileWriter.open(dump_file);
     // 设置浮点数精度为3位小数
     fileWriter << std::fixed << std::setprecision(3) << dump_json;
     fileWriter.flush();
     fileWriter.close();
+    auto write_time = std::chrono::high_resolution_clock::now();
+    auto write_duration = std::chrono::duration_cast<std::chrono::milliseconds>(write_time - gen_time).count();
+    cout << " done (" << write_duration / 1000.0 << "s)" << endl;
 }
 
 const shared_ptr<GameTree> &PokerSolver::getGameTree() const {

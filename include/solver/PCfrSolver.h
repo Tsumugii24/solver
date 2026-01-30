@@ -17,6 +17,7 @@
 #include "tools/utils.h"
 #include <queue>
 #include <optional>
+#include <atomic>
 
 template<typename T>
 class ThreadsafeQueue {
@@ -146,6 +147,12 @@ private:
     void purnTree();
     void exchangeRange(json& strategy,int rank1,int rank2,shared_ptr<ActionNode> one_node);
     void reConvertJson(const shared_ptr<GameTreeNode>& node,json& strategy,string key,int depth,int max_depth,vector<string> prefix,int deal,vector<vector<int>> exchange_color_list);
+    
+    // 进度条相关
+    long long countNodes(const shared_ptr<GameTreeNode>& node, int depth, int max_depth);
+    mutable std::atomic<long long> dump_progress{0};
+    mutable long long dump_total{0};
+    void printProgress(long long current, long long total, const std::string& prefix = "") const;
 
 };
 

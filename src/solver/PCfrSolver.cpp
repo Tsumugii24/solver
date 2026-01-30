@@ -1010,6 +1010,12 @@ void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strate
             }
         }
         (*retval)["node_type"] = "action_node";
+        
+        // 更新进度条
+        long long current = ++this->dump_progress;
+        if(current % 100 == 0 || current == this->dump_total) {
+            printProgress(current, this->dump_total, "Generating: ");
+        }
 
     }else if(node->getType() == GameTreeNode::GameTreeNodeType::SHOWDOWN) {
     }else if(node->getType() == GameTreeNode::GameTreeNodeType::TERMINAL) {
@@ -1101,12 +1107,59 @@ void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strate
     }
 }
 
+long long PCfrSolver::countNodes(const shared_ptr<GameTreeNode>& node, int depth, int max_depth) {
+    if(depth >= max_depth) return 0;
+    long long count = 0;
+    
+    if(node->getType() == GameTreeNode::GameTreeNodeType::ACTION) {
+        shared_ptr<ActionNode> action_node = std::dynamic_pointer_cast<ActionNode>(node);
+        count = 1;  // 计算当前节点
+        for(auto& child : action_node->getChildrens()) {
+            count += countNodes(child, depth, max_depth);
+        }
+    } else if(node->getType() == GameTreeNode::GameTreeNodeType::CHANCE) {
+        shared_ptr<ChanceNode> chance_node = std::dynamic_pointer_cast<ChanceNode>(node);
+        // Chance 节点会展开多张牌
+        count = countNodes(chance_node->getChildren(), depth + 1, max_depth) * chance_node->getCards().size();
+    }
+    return count;
+}
+
+void PCfrSolver::printProgress(long long current, long long total, const std::string& prefix) const {
+    if(total == 0) return;
+    
+    int bar_width = 40;
+    float progress = (float)current / total;
+    int pos = (int)(bar_width * progress);
+    
+    cout << "\r" << prefix << "[";
+    for(int i = 0; i < bar_width; ++i) {
+        if(i < pos) cout << "=";
+        else if(i == pos) cout << ">";
+        else cout << " ";
+    }
+    cout << "] " << int(progress * 100.0) << "% (" << current << "/" << total << ")";
+    cout.flush();
+}
+
 json PCfrSolver::dumps(bool with_status,int depth) {
     if(with_status == true){
         throw runtime_error("");
     }
+    
+    // 统计节点数并初始化进度
+    cout << "Counting nodes..." << flush;
+    this->dump_total = countNodes(this->tree->getRoot(), 0, depth);
+    this->dump_progress = 0;
+    cout << " found " << this->dump_total << " action nodes" << endl;
+    
     json retjson;
     this->reConvertJson(this->tree->getRoot(),retjson,"",0,depth,vector<string>({"begin"}),0,vector<vector<int>>());
+    
+    // 完成进度条
+    printProgress(dump_total, dump_total, "Generating: ");
+    cout << endl;
+    
     return std::move(retjson);
 }
 
