@@ -14,8 +14,11 @@ from pathlib import Path
 # ==================== 配置 ====================
 # 脚本所在目录
 SCRIPT_DIR = Path(__file__).parent.resolve()
-# 求解器路径
-SOLVER_EXE = str(SCRIPT_DIR / "build" / "console_solver.exe")
+# 求解器路径（根据操作系统选择）
+if sys.platform == "win32":
+    SOLVER_EXE = str(SCRIPT_DIR / "build" / "console_solver.exe")
+else:
+    SOLVER_EXE = str(SCRIPT_DIR / "install" / "console_solver")
 # Resources 目录
 RESOURCE_DIR = str(SCRIPT_DIR / "resources")
 # 配置文件目录

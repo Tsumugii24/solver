@@ -236,6 +236,38 @@ set_bet_sizes ip,river,allin
 
 ---
 
+### `set_enable_equity`
+
+**语法**: `set_enable_equity <0|1>`
+
+**示例**: `set_enable_equity 1`
+
+**说明**: 是否启用 Equity（胜率期望）的计算和导出。
+
+| 值 | 含义 |
+|----|------|
+| `1` | 启用（计算并导出 equity，会增加少量计算开销和输出文件大小） |
+| `0` | 禁用（默认，只计算 EV） |
+
+**Equity 定义**:
+```
+equity = win_prob + tie_prob / 2
+```
+- 赢：算 1.0
+- 平局：算 0.5
+- 输：算 0.0
+
+**与 EV 的区别**:
+
+| 指标 | 含义 | 单位 |
+|-----|------|-----|
+| **EV** | 期望收益 | 筹码数 |
+| **Equity** | 胜率期望 | 概率 (0-1) |
+
+> 💡 **提示**: 默认不启用。只有在需要分析胜率相关信息时才需要开启。
+
+---
+
 ## 执行与输出
 
 ### `start_solve`
@@ -325,6 +357,7 @@ set_accuracy 1
 set_max_iteration 300
 set_print_interval 10
 set_use_isomorphism 1
+# set_enable_equity 1  # 可选：启用 equity 计算
 
 # 执行求解
 start_solve

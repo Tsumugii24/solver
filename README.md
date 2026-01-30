@@ -4,11 +4,11 @@
 
 ### 环境要求
 
-- CMake 3.15+
-- GCC 15.2.0 (MinGW-w64) 或更高版本
-- Ninja 构建工具
-- OpenMP 4.5+
-
+```
+scoop install cmake
+scoop install gcc
+scoop install ninja
+```
 ### 编译步骤
 
 ```powershell
@@ -33,10 +33,22 @@ cmake --build . --config Release
 
 
 ## Linux 编译说明
+
+### 一键编译
 ```bash
+chmod +x compile.sh
+./compile.sh
+```
+
+### 手动编译
+```bash
+rm -rf build install
 mkdir build
 cd build
-cmake ..
-make install
-cd ../install
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc) install
 ```
+
+### 编译产物
+
+编译完成后，`console_solver` 位于 `install/` 目录下

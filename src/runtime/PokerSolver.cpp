@@ -49,7 +49,7 @@ void PokerSolver::build_game_tree(
 }
 
 void PokerSolver::train(string p1_range, string p2_range, string boards, string log_file, int iteration_number,
-                        int print_interval, string algorithm,int warmup,float accuracy,bool use_isomorphism,int threads) {
+                        int print_interval, string algorithm,int warmup,float accuracy,bool use_isomorphism,int threads,bool enable_equity) {
     string player1RangeStr = p1_range;
     string player2RangeStr = p2_range;
 
@@ -79,6 +79,7 @@ void PokerSolver::train(string p1_range, string p2_range, string boards, string 
             , accuracy
             , use_isomorphism
             , threads
+            , enable_equity
     );
     this->solver->train();
 }

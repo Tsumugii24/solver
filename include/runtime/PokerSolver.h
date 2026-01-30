@@ -41,7 +41,8 @@ public:
             int warmup,
             float accuracy,
             bool use_isomorphism,
-            int threads
+            int threads,
+            bool enable_equity = false
             );
     void dump_strategy(string dump_file,int dump_rounds);
     long long estimate_tree_memory(string p1_range, string p2_range, string boards);

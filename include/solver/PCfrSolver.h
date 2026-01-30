@@ -98,7 +98,8 @@ public:
             int warmup,
             float accuracy,
             bool use_isomorphism,
-            int num_threads
+            int num_threads,
+            bool enable_equity = false
     );
     void train() override;
     json dumps(bool with_status,int depth);
@@ -129,6 +130,7 @@ private:
     bool distributing_task;
     float accuracy;
     bool use_isomorphism;
+    bool enable_equity;
 
     const vector<PrivateCards>& playerHands(int player);
     vector<vector<float>> getReachProbs();

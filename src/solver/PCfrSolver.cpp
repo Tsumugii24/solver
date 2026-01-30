@@ -9,7 +9,7 @@
 
 PCfrSolver::PCfrSolver(shared_ptr<GameTree> tree, vector<PrivateCards> range1, vector<PrivateCards> range2,
                      vector<int> initial_board, shared_ptr<Compairer> compairer, Deck deck, int iteration_number, bool debug,
-                     int print_interval, string logfile, string trainer, Solver::MonteCarolAlg monteCarolAlg,int warmup,float accuracy,bool use_isomorphism,int num_threads) :Solver(tree){
+                     int print_interval, string logfile, string trainer, Solver::MonteCarolAlg monteCarolAlg,int warmup,float accuracy,bool use_isomorphism,int num_threads,bool enable_equity) :Solver(tree){
     this->initial_board = initial_board;
     this->initial_board_long = Card::boardInts2long(initial_board);
     this->logfile = logfile;
@@ -30,6 +30,7 @@ PCfrSolver::PCfrSolver(shared_ptr<GameTree> tree, vector<PrivateCards> range1, v
 
     this->deck = deck;
     this->use_isomorphism = use_isomorphism;
+    this->enable_equity = enable_equity;
 
     this->rrm = RiverRangeManager(compairer);
     this->iteration_number = iteration_number;
@@ -231,9 +232,12 @@ PCfrSolver::chanceUtility(int player, shared_ptr<ChanceNode> node, const vector<
 
     //vector<float> chance_utility(reach_probs[player].size());
     vector<float> chance_utility = vector<float>(this->ranges[player].size());
-    vector<float> chance_equity = vector<float>(this->ranges[player].size());
+    vector<float> chance_equity;  // 只在启用 equity 时分配
     fill(chance_utility.begin(),chance_utility.end(),0);
-    fill(chance_equity.begin(),chance_equity.end(),0);
+    if(this->enable_equity) {
+        chance_equity = vector<float>(this->ranges[player].size());
+        fill(chance_equity.begin(),chance_equity.end(),0);
+    }
 
     int random_deal = 0;
     if(this->monteCarolAlg==MonteCarolAlg::PUBLIC) {
@@ -368,7 +372,9 @@ PCfrSolver::chanceUtility(int player, shared_ptr<ChanceNode> node, const vector<
 #endif
             child_result = results[one_card->getNumberInDeckInt() + offset];
             exchange_color(child_result.payoffs,this->pcm.getPreflopCards(player),rank1,rank2);
-            exchange_color(child_result.equity,this->pcm.getPreflopCards(player),rank1,rank2);
+            if(this->enable_equity && !child_result.equity.empty()) {
+                exchange_color(child_result.equity,this->pcm.getPreflopCards(player),rank1,rank2);
+            }
         }else{
             child_result = results[one_card->getNumberInDeckInt()];
         }
@@ -381,12 +387,20 @@ PCfrSolver::chanceUtility(int player, shared_ptr<ChanceNode> node, const vector<
         if(iter > this->warmup) {
             for (int i = 0; i < child_result.payoffs.size(); i++) {
                 chance_utility[i] += child_result.payoffs[i];
-                chance_equity[i] += child_result.equity[i];
+            }
+            if(this->enable_equity && !child_result.equity.empty()) {
+                for (int i = 0; i < child_result.equity.size(); i++) {
+                    chance_equity[i] += child_result.equity[i];
+                }
             }
         }else{
             for (int i = 0; i < child_result.payoffs.size(); i++) {
                 chance_utility[i] += child_result.payoffs[i] * multiplier[card];
-                chance_equity[i] += child_result.equity[i] * multiplier[card];
+            }
+            if(this->enable_equity && !child_result.equity.empty()) {
+                for (int i = 0; i < child_result.equity.size(); i++) {
+                    chance_equity[i] += child_result.equity[i] * multiplier[card];
+                }
             }
         }
     }
@@ -409,9 +423,12 @@ PCfrSolver::actionUtility(int player, shared_ptr<ActionNode> node, const vector<
     const vector<PrivateCards>& node_player_private_cards = this->ranges[node->getPlayer()];
 
     vector<float> payoffs = vector<float>(this->ranges[player].size());
-    vector<float> total_equity = vector<float>(this->ranges[player].size());
+    vector<float> total_equity;  // 只在启用 equity 时分配
     fill(payoffs.begin(),payoffs.end(),0);
-    fill(total_equity.begin(),total_equity.end(),0);
+    if(this->enable_equity) {
+        total_equity = vector<float>(this->ranges[player].size());
+        fill(total_equity.begin(),total_equity.end(),0);
+    }
     vector<shared_ptr<GameTreeNode>>& children =  node->getChildrens();
     vector<GameActions>& actions =  node->getActions();
 
@@ -451,7 +468,10 @@ PCfrSolver::actionUtility(int player, shared_ptr<ActionNode> node, const vector<
     vector<float> regrets(actions.size() * node_player_private_cards.size());
 
     vector<vector<float>> all_action_utility(actions.size());
-    vector<vector<float>> all_action_equity(actions.size());
+    vector<vector<float>> all_action_equity;  // 只在启用 equity 时分配
+    if(this->enable_equity) {
+        all_action_equity = vector<vector<float>>(actions.size());
+    }
     int node_player = node->getPlayer();
 
     vector<CfrResult> results(actions.size());
@@ -477,12 +497,13 @@ PCfrSolver::actionUtility(int player, shared_ptr<ActionNode> node, const vector<
     //#pragma omp taskwait
     for (int action_id = 0; action_id < actions.size(); action_id++) {
         vector<float>& action_utilities = results[action_id].payoffs;
-        vector<float>& action_equity = results[action_id].equity;
         if(action_utilities.empty()){
             continue;
         }
         all_action_utility[action_id] = action_utilities;
-        all_action_equity[action_id] = action_equity;
+        if(this->enable_equity && !results[action_id].equity.empty()) {
+            all_action_equity[action_id] = results[action_id].equity;
+        }
 
         // cfr结果是每手牌的收益，payoffs代表的也是每手牌的收益，他们的长度理应相等
 #ifdef DEBUG
@@ -503,10 +524,14 @@ PCfrSolver::actionUtility(int player, shared_ptr<ActionNode> node, const vector<
             if (player == node->getPlayer()) {
                 float strategy_prob = current_strategy[hand_id + action_id * node_player_private_cards.size()];
                 payoffs[hand_id] += strategy_prob * action_utilities[hand_id];
-                total_equity[hand_id] += strategy_prob * action_equity[hand_id];
+                if(this->enable_equity && !results[action_id].equity.empty()) {
+                    total_equity[hand_id] += strategy_prob * results[action_id].equity[hand_id];
+                }
             } else {
                 payoffs[hand_id] += action_utilities[hand_id];
-                total_equity[hand_id] += action_equity[hand_id];
+                if(this->enable_equity && !results[action_id].equity.empty()) {
+                    total_equity[hand_id] += results[action_id].equity[hand_id];
+                }
             }
         }
     }
@@ -548,7 +573,7 @@ PCfrSolver::actionUtility(int player, shared_ptr<ActionNode> node, const vector<
             }
         }
 
-        // 计算并存储 EV 和 Equity (每隔 print_interval 次迭代计算一次)
+        // 计算并存储 EV (每隔 print_interval 次迭代计算一次)
         if(iter % this->print_interval == 0){
             float oppo_sum = 0;
             vector<float> oppo_card_sum = vector<float> (52);
@@ -563,12 +588,10 @@ PCfrSolver::actionUtility(int player, shared_ptr<ActionNode> node, const vector<
 
             const vector<PrivateCards>& player_hand = playerHands(player);
             vector<float> evs(actions.size() * node_player_private_cards.size(), 0.0);
-            vector<float> equity_to_store(actions.size() * node_player_private_cards.size(), 0.0);
 
             for (std::size_t action_id = 0; action_id < actions.size(); action_id++) {
                 for (std::size_t hand_id = 0; hand_id < node_player_private_cards.size(); hand_id++) {
                     float one_ev = (all_action_utility)[action_id][hand_id];
-                    float one_equity = (all_action_equity)[action_id][hand_id];
 
                     int oppo_same_card_ind = this->pcm.indPlayer2Player(player, oppo, hand_id);
                     float plus_reach_prob;
@@ -588,12 +611,23 @@ PCfrSolver::actionUtility(int player, shared_ptr<ActionNode> node, const vector<
                     std::size_t idx = hand_id + action_id * node_player_private_cards.size();
                     // 归一化 EV
                     evs[idx] = (rp_sum > 0) ? one_ev / rp_sum : 0;
-                    // equity 已经从子节点递归传来，直接使用
-                    equity_to_store[idx] = one_equity;
                 }
             }
             trainable->setEv(evs);
-            trainable->setEquity(equity_to_store);
+            
+            // 只在启用 equity 时存储
+            if(this->enable_equity && !all_action_equity.empty()) {
+                vector<float> equity_to_store(actions.size() * node_player_private_cards.size(), 0.0);
+                for (std::size_t action_id = 0; action_id < actions.size(); action_id++) {
+                    if(all_action_equity[action_id].empty()) continue;
+                    for (std::size_t hand_id = 0; hand_id < node_player_private_cards.size(); hand_id++) {
+                        float one_equity = (all_action_equity)[action_id][hand_id];
+                        std::size_t idx = hand_id + action_id * node_player_private_cards.size();
+                        equity_to_store[idx] = one_equity;
+                    }
+                }
+                trainable->setEquity(equity_to_store);
+            }
         }
     }
     return CfrResult(std::move(payoffs), std::move(total_equity));
@@ -614,20 +648,27 @@ PCfrSolver::showdownUtility(int player, shared_ptr<ShowdownNode> node, const vec
     const vector<RiverCombs>& oppo_combs = this->rrm.getRiverCombos(oppo,oppo_private_cards,current_board);
 
     vector<float> payoffs = vector<float>(player_private_cards.size());
-    vector<float> equity = vector<float>(player_private_cards.size(), 0.0f);
+    vector<float> equity;  // 只在启用 equity 时分配
     
-    // 临时存储 effective_winsum 和 effective_total，用于在反向循环后计算 equity
-    vector<float> effective_winsum_arr = vector<float>(player_private_cards.size(), 0.0f);
-    vector<float> effective_total_arr = vector<float>(player_private_cards.size(), 0.0f);
-    
-    // 计算对手总 reach_prob 和每张牌的分布（用于计算 equity）
+    // 只在启用 equity 时分配临时存储
+    vector<float> effective_winsum_arr;
+    vector<float> effective_total_arr;
     float oppo_total = 0;
-    vector<float> oppo_card_total = vector<float>(52, 0.0f);
-    for(std::size_t i = 0;i < oppo_combs.size();i ++){
-        const RiverCombs& one_oppo_comb = oppo_combs[i];
-        oppo_total += reach_probs[one_oppo_comb.reach_prob_index];
-        oppo_card_total[one_oppo_comb.private_cards.card1] += reach_probs[one_oppo_comb.reach_prob_index];
-        oppo_card_total[one_oppo_comb.private_cards.card2] += reach_probs[one_oppo_comb.reach_prob_index];
+    vector<float> oppo_card_total;
+    
+    if(this->enable_equity) {
+        equity = vector<float>(player_private_cards.size(), 0.0f);
+        effective_winsum_arr = vector<float>(player_private_cards.size(), 0.0f);
+        effective_total_arr = vector<float>(player_private_cards.size(), 0.0f);
+        oppo_card_total = vector<float>(52, 0.0f);
+        
+        // 计算对手总 reach_prob 和每张牌的分布（用于计算 equity）
+        for(std::size_t i = 0;i < oppo_combs.size();i ++){
+            const RiverCombs& one_oppo_comb = oppo_combs[i];
+            oppo_total += reach_probs[one_oppo_comb.reach_prob_index];
+            oppo_card_total[one_oppo_comb.private_cards.card1] += reach_probs[one_oppo_comb.reach_prob_index];
+            oppo_card_total[one_oppo_comb.private_cards.card2] += reach_probs[one_oppo_comb.reach_prob_index];
+        }
     }
 
     float winsum = 0;
@@ -649,22 +690,24 @@ PCfrSolver::showdownUtility(int player, shared_ptr<ShowdownNode> node, const vec
                                  - card_winsum[one_player_comb.private_cards.card2];
         payoffs[one_player_comb.reach_prob_index] = effective_winsum * win_payoff;
         
-        // 存储 effective_winsum 用于后续计算 equity
-        effective_winsum_arr[one_player_comb.reach_prob_index] = effective_winsum;
-        
-        // 计算并存储 effective_total
-        float effective_total = oppo_total
-                                - oppo_card_total[one_player_comb.private_cards.card1]
-                                - oppo_card_total[one_player_comb.private_cards.card2];
-        // 处理 blocker 重叠：如果对手手牌与我方手牌完全相同，需要加回
-        int oppo_same_card_ind = this->pcm.indPlayer2Player(player, oppo, one_player_comb.reach_prob_index);
-        if(oppo_same_card_ind != -1){
-            effective_total += reach_probs[oppo_same_card_ind];
+        // 只在启用 equity 时存储
+        if(this->enable_equity) {
+            effective_winsum_arr[one_player_comb.reach_prob_index] = effective_winsum;
+            
+            // 计算并存储 effective_total
+            float effective_total = oppo_total
+                                    - oppo_card_total[one_player_comb.private_cards.card1]
+                                    - oppo_card_total[one_player_comb.private_cards.card2];
+            // 处理 blocker 重叠：如果对手手牌与我方手牌完全相同，需要加回
+            int oppo_same_card_ind = this->pcm.indPlayer2Player(player, oppo, one_player_comb.reach_prob_index);
+            if(oppo_same_card_ind != -1){
+                effective_total += reach_probs[oppo_same_card_ind];
+            }
+            effective_total_arr[one_player_comb.reach_prob_index] = effective_total;
         }
-        effective_total_arr[one_player_comb.reach_prob_index] = effective_total;
     }
 
-    // 计算失败时的payoff，同时计算 equity
+    // 计算失败时的payoff
     float losssum = 0;
     vector<float>& card_losssum = card_winsum;
     fill(card_losssum.begin(),card_losssum.end(),0);
@@ -684,15 +727,17 @@ PCfrSolver::showdownUtility(int player, shared_ptr<ShowdownNode> node, const vec
                                   - card_losssum[one_player_comb.private_cards.card2];
         payoffs[one_player_comb.reach_prob_index] += effective_losssum * lose_payoff;
         
-        // 计算 equity = win_prob + tie_prob/2 = win_prob + (1 - win_prob - loss_prob)/2
-        int idx = one_player_comb.reach_prob_index;
-        float effective_total = effective_total_arr[idx];
-        if(effective_total > 0) {
-            float win_prob = effective_winsum_arr[idx] / effective_total;
-            float loss_prob = effective_losssum / effective_total;
-            float tie_prob = 1.0f - win_prob - loss_prob;
-            if(tie_prob < 0) tie_prob = 0;  // 防止浮点误差
-            equity[idx] = win_prob + tie_prob * 0.5f;
+        // 只在启用 equity 时计算
+        if(this->enable_equity) {
+            int idx = one_player_comb.reach_prob_index;
+            float effective_total = effective_total_arr[idx];
+            if(effective_total > 0) {
+                float win_prob = effective_winsum_arr[idx] / effective_total;
+                float loss_prob = effective_losssum / effective_total;
+                float tie_prob = 1.0f - win_prob - loss_prob;
+                if(tie_prob < 0) tie_prob = 0;  // 防止浮点误差
+                equity[idx] = win_prob + tie_prob * 0.5f;
+            }
         }
     }
     return CfrResult(std::move(payoffs), std::move(equity));
@@ -708,9 +753,13 @@ PCfrSolver::terminalUtility(int player, shared_ptr<TerminalNode> node, const vec
     const vector<PrivateCards>& oppo_hand = playerHands(oppo);
 
     vector<float> payoffs = vector<float>(this->playerHands(player).size());
-    // Terminal 节点：如果 player_payoff > 0，说明对手 fold，equity = 1；否则 equity = 0
-    float terminal_equity = (player_payoff > 0) ? 1.0f : 0.0f;
-    vector<float> equity = vector<float>(this->playerHands(player).size(), terminal_equity);
+    vector<float> equity;  // 只在启用 equity 时分配
+    
+    if(this->enable_equity) {
+        // Terminal 节点：如果 player_payoff > 0，说明对手 fold，equity = 1；否则 equity = 0
+        float terminal_equity = (player_payoff > 0) ? 1.0f : 0.0f;
+        equity = vector<float>(this->playerHands(player).size(), terminal_equity);
+    }
 
     float oppo_sum = 0;
     vector<float> oppo_card_sum = vector<float> (52);
@@ -941,8 +990,10 @@ void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strate
             (*retval)["strategy"] = trainable->dump_strategy(false);
             // 导出EV值 (按照GitHub issue的建议)
             (*retval)["evs"] = trainable->dump_evs();
-            // 导出Equity值
-            (*retval)["equities"] = trainable->dump_equities();
+            // 只在启用 equity 时导出
+            if(this->enable_equity) {
+                (*retval)["equities"] = trainable->dump_equities();
+            }
             for(vector<int> one_exchange:exchange_color_list){
                 int rank1 = one_exchange[0];
                 int rank2 = one_exchange[1];
@@ -951,8 +1002,8 @@ void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strate
                 if((*retval)["evs"].contains("evs")) {
                     this->exchangeRange((*retval)["evs"]["evs"],rank1,rank2,one_node);
                 }
-                // 同时交换Equity值
-                if((*retval)["equities"].contains("equities")) {
+                // 同时交换Equity值（只在启用 equity 时）
+                if(this->enable_equity && (*retval)["equities"].contains("equities")) {
                     this->exchangeRange((*retval)["equities"]["equities"],rank1,rank2,one_node);
                 }
 

@@ -155,12 +155,18 @@ void CommandLineTool::processCommand(string input) {
         this->use_isomorphism = stoi(paramstr);
     }else if(command == "set_print_interval"){
         this->print_interval = stoi(paramstr);
+    }else if(command == "set_enable_equity"){
+        this->enable_equity = (stoi(paramstr) != 0);
+        cout << fmt::format("Equity calculation: {}", this->enable_equity ? "enabled" : "disabled") << endl;
     }else if(command == "start_solve"){
         cout << "<<<START SOLVING>>>" << endl;
         // 打印内存估算
         long long estimated_memory = this->ps.estimate_tree_memory(this->range_ip, this->range_oop, this->board);
         double memory_gb = (double)estimated_memory * sizeof(float) / (1024.0 * 1024.0 * 1024.0);
         cout << fmt::format("Estimated memory usage: {:.2f} GB ({} floats)", memory_gb, estimated_memory) << endl;
+        if(this->enable_equity) {
+            cout << "Equity calculation is enabled" << endl;
+        }
         
         this->ps.train(
                 this->range_ip,
@@ -173,7 +179,8 @@ void CommandLineTool::processCommand(string input) {
                 -1,
                 this->accuracy,
                 this->use_isomorphism,
-                this->thread_number
+                this->thread_number,
+                this->enable_equity
         );
     }else if(command == "estimate_memory"){
         // 单独的内存估算命令

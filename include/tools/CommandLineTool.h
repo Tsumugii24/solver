@@ -42,6 +42,7 @@ private:
     int use_isomorphism=0;
     int print_interval=10;
     int dump_rounds = 1;
+    bool enable_equity = false;
     shared_ptr<GameTreeBuildingSettings> gtbs;
 };
 
