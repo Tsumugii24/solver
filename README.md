@@ -1,4 +1,4 @@
-# CPP Texas Solver
+# Solver
 
 ## Windows 编译说明
 
