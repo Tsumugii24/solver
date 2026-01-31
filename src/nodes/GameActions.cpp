@@ -44,6 +44,11 @@ string GameActions::toString() {
     if(this->amount == -1) {
         return this->pokerActionToString(this->action);
     }else{
-        return this->pokerActionToString(this->action) + " " + to_string(amount);
+        // 如果 amount 是整数，输出整数形式；否则保留小数
+        if(amount == (int)amount) {
+            return this->pokerActionToString(this->action) + " " + to_string((int)amount);
+        } else {
+            return fmt::format("{} {:.2f}", this->pokerActionToString(this->action), amount);
+        }
     }
 }

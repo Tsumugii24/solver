@@ -39,7 +39,7 @@ include CMakeFiles/rules.ninja
 #############################################
 # Logical path to working directory; prefix for absolute paths.
 
-cmake_ninja_workdir = D$:/pocker/TexasSolver-console/build/
+cmake_ninja_workdir = D$:/pocker/solver/build/
 # =============================================================================
 # Object build statements for STATIC_LIBRARY target TexasSolver
 
@@ -49,322 +49,322 @@ cmake_ninja_workdir = D$:/pocker/TexasSolver-console/build/
 
 build cmake_object_order_depends_target_TexasSolver: phony || cmake_object_order_depends_target_fmt
 
-build CMakeFiles/TexasSolver.dir/src/Card.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/Card.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/Card.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/Card.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\Card.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/Deck.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/Deck.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/Deck.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/Deck.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\Deck.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/GameTree.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/GameTree.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/GameTree.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/GameTree.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\GameTree.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/console.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/console.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/console.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/console.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\console.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/library.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/library.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/library.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/library.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\library.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/compairer/Dic5Compairer.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/compairer/Dic5Compairer.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/compairer/Dic5Compairer.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/compairer/Dic5Compairer.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\compairer\Dic5Compairer.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\compairer
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/nodes/ActionNode.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/nodes/ActionNode.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/nodes/ActionNode.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/nodes/ActionNode.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\nodes\ActionNode.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\nodes
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/nodes/ChanceNode.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/nodes/ChanceNode.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/nodes/ChanceNode.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/nodes/ChanceNode.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\nodes\ChanceNode.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\nodes
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/nodes/GameActions.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/nodes/GameActions.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/nodes/GameActions.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/nodes/GameActions.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\nodes\GameActions.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\nodes
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/nodes/GameTreeNode.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/nodes/GameTreeNode.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/nodes/GameTreeNode.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/nodes/GameTreeNode.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\nodes\GameTreeNode.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\nodes
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/nodes/ShowdownNode.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/nodes/ShowdownNode.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/nodes/ShowdownNode.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/nodes/ShowdownNode.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\nodes\ShowdownNode.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\nodes
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/nodes/TerminalNode.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/nodes/TerminalNode.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/nodes/TerminalNode.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/nodes/TerminalNode.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\nodes\TerminalNode.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\nodes
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/ranges/PrivateCards.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/ranges/PrivateCards.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/ranges/PrivateCards.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/ranges/PrivateCards.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\ranges\PrivateCards.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\ranges
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/ranges/PrivateCardsManager.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/ranges/PrivateCardsManager.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/ranges/PrivateCardsManager.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/ranges/PrivateCardsManager.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\ranges\PrivateCardsManager.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\ranges
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/ranges/RiverCombs.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/ranges/RiverCombs.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/ranges/RiverCombs.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/ranges/RiverCombs.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\ranges\RiverCombs.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\ranges
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/ranges/RiverRangeManager.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/ranges/RiverRangeManager.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/ranges/RiverRangeManager.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/ranges/RiverRangeManager.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\ranges\RiverRangeManager.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\ranges
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/tools/CommandLineTool.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/tools/CommandLineTool.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/tools/CommandLineTool.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/tools/CommandLineTool.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\tools\CommandLineTool.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\tools
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/tools/GameTreeBuildingSettings.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/tools/GameTreeBuildingSettings.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/tools/GameTreeBuildingSettings.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/tools/GameTreeBuildingSettings.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\tools\GameTreeBuildingSettings.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\tools
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/tools/PrivateRangeConverter.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/tools/PrivateRangeConverter.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/tools/PrivateRangeConverter.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/tools/PrivateRangeConverter.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\tools\PrivateRangeConverter.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\tools
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/tools/Rule.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/tools/Rule.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/tools/Rule.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/tools/Rule.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\tools\Rule.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\tools
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/tools/StreetSetting.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/tools/StreetSetting.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/tools/StreetSetting.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/tools/StreetSetting.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\tools\StreetSetting.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\tools
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/tools/lookup8.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/tools/lookup8.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/tools/lookup8.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/tools/lookup8.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\tools\lookup8.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\tools
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/tools/progressbar.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/tools/progressbar.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/tools/progressbar.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/tools/progressbar.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\tools\progressbar.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\tools
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/tools/utils.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/tools/utils.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/tools/utils.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/tools/utils.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\tools\utils.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\tools
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/trainable/CfrPlusTrainable.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/trainable/CfrPlusTrainable.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/trainable/CfrPlusTrainable.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/trainable/CfrPlusTrainable.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\trainable\CfrPlusTrainable.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\trainable
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/trainable/DiscountedCfrTrainable.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/trainable/DiscountedCfrTrainable.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/trainable/DiscountedCfrTrainable.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/trainable/DiscountedCfrTrainable.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\trainable\DiscountedCfrTrainable.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\trainable
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/trainable/Trainable.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/trainable/Trainable.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/trainable/Trainable.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/trainable/Trainable.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\trainable\Trainable.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\trainable
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/solver/BestResponse.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/solver/BestResponse.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/solver/BestResponse.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/solver/BestResponse.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\solver\BestResponse.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\solver
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/solver/CfrSolver.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/solver/CfrSolver.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/solver/CfrSolver.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/solver/CfrSolver.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\solver\CfrSolver.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\solver
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/solver/PCfrSolver.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/solver/PCfrSolver.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/solver/PCfrSolver.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/solver/PCfrSolver.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\solver\PCfrSolver.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\solver
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/solver/Solver.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/solver/Solver.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/solver/Solver.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/solver/Solver.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\solver\Solver.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\solver
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
 
-build CMakeFiles/TexasSolver.dir/src/runtime/PokerSolver.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/TexasSolver-console/src/runtime/PokerSolver.cpp || cmake_object_order_depends_target_TexasSolver
+build CMakeFiles/TexasSolver.dir/src/runtime/PokerSolver.cpp.obj: CXX_COMPILER__TexasSolver_unscanned_Release D$:/pocker/solver/src/runtime/PokerSolver.cpp || cmake_object_order_depends_target_TexasSolver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\TexasSolver.dir\src\runtime\PokerSolver.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\TexasSolver.dir
   OBJECT_FILE_DIR = CMakeFiles\TexasSolver.dir\src\runtime
   TARGET_SUPPORT_DIR = CMakeFiles\TexasSolver.dir
@@ -396,12 +396,12 @@ build libTexasSolver.a: CXX_STATIC_LIBRARY_LINKER__TexasSolver_Release CMakeFile
 
 build cmake_object_order_depends_target_console_solver: phony || cmake_object_order_depends_target_TexasSolver cmake_object_order_depends_target_fmt
 
-build CMakeFiles/console_solver.dir/src/console.cpp.obj: CXX_COMPILER__console_solver_unscanned_Release D$:/pocker/TexasSolver-console/src/console.cpp || cmake_object_order_depends_target_console_solver
+build CMakeFiles/console_solver.dir/src/console.cpp.obj: CXX_COMPILER__console_solver_unscanned_Release D$:/pocker/solver/src/console.cpp || cmake_object_order_depends_target_console_solver
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = CMakeFiles\console_solver.dir\src\console.cpp.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt -ID:/pocker/TexasSolver-console/include
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt -ID:/pocker/solver/include
   OBJECT_DIR = CMakeFiles\console_solver.dir
   OBJECT_FILE_DIR = CMakeFiles\console_solver.dir\src
   TARGET_SUPPORT_DIR = CMakeFiles\console_solver.dir
@@ -432,7 +432,7 @@ build console_solver.exe: CXX_EXECUTABLE_LINKER__console_solver_Release CMakeFil
 # Utility command for edit_cache
 
 build CMakeFiles/edit_cache.util: CUSTOM_COMMAND
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\TexasSolver-console\build && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake-gui.exe -SD:\pocker\TexasSolver-console -BD:\pocker\TexasSolver-console\build"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\solver\build && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake-gui.exe -SD:\pocker\solver -BD:\pocker\solver\build"
   DESC = Running CMake cache editor...
   pool = console
   restat = 1
@@ -444,7 +444,7 @@ build edit_cache: phony CMakeFiles/edit_cache.util
 # Utility command for rebuild_cache
 
 build CMakeFiles/rebuild_cache.util: CUSTOM_COMMAND
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\TexasSolver-console\build && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe --regenerate-during-build -SD:\pocker\TexasSolver-console -BD:\pocker\TexasSolver-console\build"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\solver\build && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe --regenerate-during-build -SD:\pocker\solver -BD:\pocker\solver\build"
   DESC = Running CMake to regenerate build system...
   pool = console
   restat = 1
@@ -462,7 +462,7 @@ build list_install_components: phony
 # Utility command for install
 
 build CMakeFiles/install.util: CUSTOM_COMMAND all
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\TexasSolver-console\build && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -P cmake_install.cmake"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\solver\build && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -P cmake_install.cmake"
   DESC = Install the project...
   pool = console
   restat = 1
@@ -474,7 +474,7 @@ build install: phony CMakeFiles/install.util
 # Utility command for install/local
 
 build CMakeFiles/install/local.util: CUSTOM_COMMAND all
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\TexasSolver-console\build && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\solver\build && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake"
   DESC = Installing only the local directory...
   pool = console
   restat = 1
@@ -486,7 +486,7 @@ build install/local: phony CMakeFiles/install/local.util
 # Utility command for install/strip
 
 build CMakeFiles/install/strip.util: CUSTOM_COMMAND all
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\TexasSolver-console\build && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\solver\build && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake"
   DESC = Installing the project stripped...
   pool = console
   restat = 1
@@ -495,7 +495,7 @@ build install/strip: phony CMakeFiles/install/strip.util
 
 # =============================================================================
 # Write statements declared in CMakeLists.txt:
-# D:/pocker/TexasSolver-console/CMakeLists.txt
+# D:/pocker/solver/CMakeLists.txt
 # =============================================================================
 
 # =============================================================================
@@ -507,22 +507,22 @@ build install/strip: phony CMakeFiles/install/strip.util
 
 build cmake_object_order_depends_target_fmt: phony || .
 
-build ext/fmt/CMakeFiles/fmt.dir/src/format.cc.obj: CXX_COMPILER__fmt_unscanned_Release D$:/pocker/TexasSolver-console/ext/fmt/src/format.cc || cmake_object_order_depends_target_fmt
+build ext/fmt/CMakeFiles/fmt.dir/src/format.cc.obj: CXX_COMPILER__fmt_unscanned_Release D$:/pocker/solver/ext/fmt/src/format.cc || cmake_object_order_depends_target_fmt
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = ext\fmt\CMakeFiles\fmt.dir\src\format.cc.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt
   OBJECT_DIR = ext\fmt\CMakeFiles\fmt.dir
   OBJECT_FILE_DIR = ext\fmt\CMakeFiles\fmt.dir\src
   TARGET_SUPPORT_DIR = ext\fmt\CMakeFiles\fmt.dir
 
-build ext/fmt/CMakeFiles/fmt.dir/src/os.cc.obj: CXX_COMPILER__fmt_unscanned_Release D$:/pocker/TexasSolver-console/ext/fmt/src/os.cc || cmake_object_order_depends_target_fmt
+build ext/fmt/CMakeFiles/fmt.dir/src/os.cc.obj: CXX_COMPILER__fmt_unscanned_Release D$:/pocker/solver/ext/fmt/src/os.cc || cmake_object_order_depends_target_fmt
   CONFIG = Release
   DEFINES = -DFMT_LOCALE
   DEP_FILE = ext\fmt\CMakeFiles\fmt.dir\src\os.cc.obj.d
   FLAGS = -fPIC -fopenmp -O3 -std=gnu++17
-  INCLUDES = -ID:/pocker/TexasSolver-console/ext/fmt/include -ID:/pocker/TexasSolver-console/ext/fmt
+  INCLUDES = -ID:/pocker/solver/ext/fmt/include -ID:/pocker/solver/ext/fmt
   OBJECT_DIR = ext\fmt\CMakeFiles\fmt.dir
   OBJECT_FILE_DIR = ext\fmt\CMakeFiles\fmt.dir\src
   TARGET_SUPPORT_DIR = ext\fmt\CMakeFiles\fmt.dir
@@ -550,7 +550,7 @@ build ext/fmt/libfmt.a: CXX_STATIC_LIBRARY_LINKER__fmt_Release ext/fmt/CMakeFile
 # Utility command for edit_cache
 
 build ext/fmt/CMakeFiles/edit_cache.util: CUSTOM_COMMAND
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\TexasSolver-console\build\ext\fmt && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake-gui.exe -SD:\pocker\TexasSolver-console -BD:\pocker\TexasSolver-console\build"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\solver\build\ext\fmt && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake-gui.exe -SD:\pocker\solver -BD:\pocker\solver\build"
   DESC = Running CMake cache editor...
   pool = console
   restat = 1
@@ -562,7 +562,7 @@ build ext/fmt/edit_cache: phony ext/fmt/CMakeFiles/edit_cache.util
 # Utility command for rebuild_cache
 
 build ext/fmt/CMakeFiles/rebuild_cache.util: CUSTOM_COMMAND
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\TexasSolver-console\build\ext\fmt && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe --regenerate-during-build -SD:\pocker\TexasSolver-console -BD:\pocker\TexasSolver-console\build"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\solver\build\ext\fmt && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe --regenerate-during-build -SD:\pocker\solver -BD:\pocker\solver\build"
   DESC = Running CMake to regenerate build system...
   pool = console
   restat = 1
@@ -580,7 +580,7 @@ build ext/fmt/list_install_components: phony
 # Utility command for install
 
 build ext/fmt/CMakeFiles/install.util: CUSTOM_COMMAND ext/fmt/all
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\TexasSolver-console\build\ext\fmt && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -P cmake_install.cmake"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\solver\build\ext\fmt && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -P cmake_install.cmake"
   DESC = Install the project...
   pool = console
   restat = 1
@@ -592,7 +592,7 @@ build ext/fmt/install: phony ext/fmt/CMakeFiles/install.util
 # Utility command for install/local
 
 build ext/fmt/CMakeFiles/install/local.util: CUSTOM_COMMAND ext/fmt/all
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\TexasSolver-console\build\ext\fmt && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\solver\build\ext\fmt && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake"
   DESC = Installing only the local directory...
   pool = console
   restat = 1
@@ -604,7 +604,7 @@ build ext/fmt/install/local: phony ext/fmt/CMakeFiles/install/local.util
 # Utility command for install/strip
 
 build ext/fmt/CMakeFiles/install/strip.util: CUSTOM_COMMAND ext/fmt/all
-  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\TexasSolver-console\build\ext\fmt && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake"
+  COMMAND = C:\Windows\system32\cmd.exe /C "cd /D D:\pocker\solver\build\ext\fmt && C:\Users\nalo\scoop\apps\cmake\current\bin\cmake.exe -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake"
   DESC = Installing the project stripped...
   pool = console
   restat = 1
@@ -628,14 +628,14 @@ build libfmt.a: phony ext/fmt/libfmt.a
 # =============================================================================
 
 #############################################
-# Folder: D:/pocker/TexasSolver-console/build
+# Folder: D:/pocker/solver/build
 
 build all: phony libTexasSolver.a console_solver.exe ext/fmt/all
 
 # =============================================================================
 
 #############################################
-# Folder: D:/pocker/TexasSolver-console/build/ext/fmt
+# Folder: D:/pocker/solver/build/ext/fmt
 
 build ext/fmt/all: phony ext/fmt/libfmt.a
 
@@ -646,14 +646,14 @@ build ext/fmt/all: phony ext/fmt/libfmt.a
 #############################################
 # Re-run CMake if any of its inputs changed.
 
-build build.ninja D$:/pocker/TexasSolver-console/build/cmake_install.cmake D$:/pocker/TexasSolver-console/build/ext/fmt/cmake_install.cmake: RERUN_CMAKE | C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCXXInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCommonLanguageInclude.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeGenericSystem.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeInitializeConfigs.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeLanguageInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeParseImplicitLinkInfo.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeRCInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeSystemSpecificInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeSystemSpecificInitialize.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckCXXCompilerFlag.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckCXXSourceCompiles.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckSymbolExists.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/CMakeCommonCompilerMacros.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindOpenMP.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindPackageHandleStandardArgs.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindPackageMessage.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCXXLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCommonLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckCompilerFlag.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckFlagCommonConfig.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckSourceCompiles.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-C-ABI.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX-ABI.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-Initialize.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-windres.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/WindowsPaths.cmake CMakeCache.txt CMakeFiles/4.2.2/CMakeCCompiler.cmake CMakeFiles/4.2.2/CMakeCXXCompiler.cmake CMakeFiles/4.2.2/CMakeRCCompiler.cmake CMakeFiles/4.2.2/CMakeSystem.cmake D$:/pocker/TexasSolver-console/CMakeLists.txt D$:/pocker/TexasSolver-console/ext/fmt/CMakeLists.txt D$:/pocker/TexasSolver-console/ext/fmt/support/cmake/cxx14.cmake
+build build.ninja D$:/pocker/solver/build/cmake_install.cmake D$:/pocker/solver/build/ext/fmt/cmake_install.cmake: RERUN_CMAKE | C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCXXInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCommonLanguageInclude.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeGenericSystem.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeInitializeConfigs.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeLanguageInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeParseImplicitLinkInfo.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeRCInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeSystemSpecificInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeSystemSpecificInitialize.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckCXXCompilerFlag.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckCXXSourceCompiles.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckSymbolExists.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/CMakeCommonCompilerMacros.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindOpenMP.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindPackageHandleStandardArgs.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindPackageMessage.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCXXLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCommonLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckCompilerFlag.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckFlagCommonConfig.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckSourceCompiles.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-C-ABI.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX-ABI.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-Initialize.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-windres.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/WindowsPaths.cmake CMakeCache.txt CMakeFiles/4.2.2/CMakeCCompiler.cmake CMakeFiles/4.2.2/CMakeCXXCompiler.cmake CMakeFiles/4.2.2/CMakeRCCompiler.cmake CMakeFiles/4.2.2/CMakeSystem.cmake D$:/pocker/solver/CMakeLists.txt D$:/pocker/solver/ext/fmt/CMakeLists.txt D$:/pocker/solver/ext/fmt/support/cmake/cxx14.cmake
   pool = console
 
 
 #############################################
 # A missing CMake input file is not an error.
 
-build C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCXXInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCommonLanguageInclude.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeGenericSystem.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeInitializeConfigs.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeLanguageInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeParseImplicitLinkInfo.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeRCInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeSystemSpecificInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeSystemSpecificInitialize.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckCXXCompilerFlag.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckCXXSourceCompiles.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckSymbolExists.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/CMakeCommonCompilerMacros.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindOpenMP.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindPackageHandleStandardArgs.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindPackageMessage.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCXXLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCommonLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckCompilerFlag.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckFlagCommonConfig.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckSourceCompiles.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-C-ABI.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX-ABI.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-Initialize.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-windres.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/WindowsPaths.cmake CMakeCache.txt CMakeFiles/4.2.2/CMakeCCompiler.cmake CMakeFiles/4.2.2/CMakeCXXCompiler.cmake CMakeFiles/4.2.2/CMakeRCCompiler.cmake CMakeFiles/4.2.2/CMakeSystem.cmake D$:/pocker/TexasSolver-console/CMakeLists.txt D$:/pocker/TexasSolver-console/ext/fmt/CMakeLists.txt D$:/pocker/TexasSolver-console/ext/fmt/support/cmake/cxx14.cmake: phony
+build C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCXXInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeCommonLanguageInclude.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeGenericSystem.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeInitializeConfigs.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeLanguageInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeParseImplicitLinkInfo.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeRCInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeSystemSpecificInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CMakeSystemSpecificInitialize.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckCXXCompilerFlag.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckCXXSourceCompiles.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/CheckSymbolExists.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/CMakeCommonCompilerMacros.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Compiler/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindOpenMP.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindPackageHandleStandardArgs.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/FindPackageMessage.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCXXLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CMakeCommonLinkerInformation.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckCompilerFlag.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckFlagCommonConfig.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Internal/CheckSourceCompiles.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Linker/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-C-ABI.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-C.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX-ABI.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-GNU.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-Initialize.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows-windres.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/Windows.cmake C$:/Users/nalo/scoop/apps/cmake/current/share/cmake-4.2/Modules/Platform/WindowsPaths.cmake CMakeCache.txt CMakeFiles/4.2.2/CMakeCCompiler.cmake CMakeFiles/4.2.2/CMakeCXXCompiler.cmake CMakeFiles/4.2.2/CMakeRCCompiler.cmake CMakeFiles/4.2.2/CMakeSystem.cmake D$:/pocker/solver/CMakeLists.txt D$:/pocker/solver/ext/fmt/CMakeLists.txt D$:/pocker/solver/ext/fmt/support/cmake/cxx14.cmake: phony
 
 
 #############################################

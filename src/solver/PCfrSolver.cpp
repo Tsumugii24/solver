@@ -9,7 +9,7 @@
 
 PCfrSolver::PCfrSolver(shared_ptr<GameTree> tree, vector<PrivateCards> range1, vector<PrivateCards> range2,
                      vector<int> initial_board, shared_ptr<Compairer> compairer, Deck deck, int iteration_number, bool debug,
-                     int print_interval, string logfile, string trainer, Solver::MonteCarolAlg monteCarolAlg,int warmup,float accuracy,bool use_isomorphism,int num_threads,bool enable_equity) :Solver(tree){
+                     int print_interval, string logfile, string trainer, Solver::MonteCarolAlg monteCarolAlg,int warmup,float accuracy,bool use_isomorphism,int num_threads,bool enable_equity,bool enable_range) :Solver(tree){
     this->initial_board = initial_board;
     this->initial_board_long = Card::boardInts2long(initial_board);
     this->logfile = logfile;
@@ -31,6 +31,7 @@ PCfrSolver::PCfrSolver(shared_ptr<GameTree> tree, vector<PrivateCards> range1, v
     this->deck = deck;
     this->use_isomorphism = use_isomorphism;
     this->enable_equity = enable_equity;
+    this->enable_range = enable_range;
 
     this->rrm = RiverRangeManager(compairer);
     this->iteration_number = iteration_number;
@@ -953,7 +954,7 @@ void PCfrSolver::exchangeRange(json& strategy,int rank1,int rank2,shared_ptr<Act
     }
 }
 
-void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strategy,string key,int depth,int max_depth,vector<string> prefix,int deal,vector<vector<int>> exchange_color_list) {
+void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strategy,string key,int depth,int max_depth,vector<string> prefix,int deal,vector<vector<int>> exchange_color_list,const vector<vector<float>>& reach_probs) {
     if(depth >= max_depth) return;
     if(node->getType() == GameTreeNode::GameTreeNodeType::ACTION) {
         json* retval;
@@ -965,12 +966,21 @@ void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strate
         }
 
         shared_ptr<ActionNode> one_node = std::dynamic_pointer_cast<ActionNode>(node);
+        int node_player = one_node->getPlayer();
+        const vector<PrivateCards>& node_player_private_cards = this->ranges[node_player];
 
         vector<string> actions_str;
         for(GameActions one_action:one_node->getActions()) actions_str.push_back(one_action.toString());
 
         (*retval)["actions"] = actions_str;
-        (*retval)["player"] = one_node->getPlayer();
+        (*retval)["player"] = node_player;
+
+        // 获取当前策略
+        shared_ptr<Trainable> trainable = one_node->getTrainable(deal,false);
+        vector<float> current_strategy;
+        if(trainable != nullptr) {
+            current_strategy = trainable->getAverageStrategy();
+        }
 
         (*retval)["childrens"] = json();
         json& childrens = (*retval)["childrens"];
@@ -980,12 +990,23 @@ void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strate
             shared_ptr<GameTreeNode> one_child = one_node->getChildrens()[i];
             vector<string> new_prefix(prefix);
             new_prefix.push_back(one_action.toString());
-            this->reConvertJson(one_child,childrens,one_action.toString(),depth,max_depth,new_prefix,deal,exchange_color_list);
+            
+            // 计算子节点的新 reach_probs
+            vector<vector<float>> new_reach_probs = reach_probs;
+            if(!current_strategy.empty()) {
+                // 当前玩家的 reach_probs 需要乘以策略概率
+                for(std::size_t hand_id = 0; hand_id < node_player_private_cards.size(); hand_id++) {
+                    float strategy_prob = current_strategy[hand_id + i * node_player_private_cards.size()];
+                    new_reach_probs[node_player][hand_id] = reach_probs[node_player][hand_id] * strategy_prob;
+                }
+            }
+            
+            this->reConvertJson(one_child,childrens,one_action.toString(),depth,max_depth,new_prefix,deal,exchange_color_list,new_reach_probs);
         }
         if((*retval)["childrens"].empty()){
             (*retval).erase("childrens");
         }
-        shared_ptr<Trainable> trainable = one_node->getTrainable(deal,false);
+        
         if(trainable != nullptr) {
             (*retval)["strategy"] = trainable->dump_strategy(false);
             // 导出EV值 (按照GitHub issue的建议)
@@ -994,6 +1015,25 @@ void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strate
             if(this->enable_equity) {
                 (*retval)["equities"] = trainable->dump_equities();
             }
+            // 只在启用 range 时导出
+            if(this->enable_range) {
+                // 导出当前节点行动玩家的 range
+                json range_json;
+                range_json["player"] = node_player;
+                json range_data;
+                vector<PrivateCards>& player_cards = this->ranges[node_player];
+                for(std::size_t hand_id = 0; hand_id < player_cards.size(); hand_id++) {
+                    float rp = reach_probs[node_player][hand_id];
+                    // 只输出非零的 range（四舍五入到3位小数后仍大于0的）
+                    float rounded_rp = round(rp * 1000.0f) / 1000.0f;
+                    if(rounded_rp > 0) {
+                        range_data[player_cards[hand_id].toString()] = rounded_rp;
+                    }
+                }
+                range_json["range"] = std::move(range_data);
+                (*retval)["ranges"] = std::move(range_json);
+            }
+            
             for(vector<int> one_exchange:exchange_color_list){
                 int rank1 = one_exchange[0];
                 int rank2 = one_exchange[1];
@@ -1006,7 +1046,10 @@ void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strate
                 if(this->enable_equity && (*retval)["equities"].contains("equities")) {
                     this->exchangeRange((*retval)["equities"]["equities"],rank1,rank2,one_node);
                 }
-
+                // 同时交换Range值（只在启用 range 时）
+                if(this->enable_range && (*retval)["ranges"].contains("range")) {
+                    this->exchangeRange((*retval)["ranges"]["range"],rank1,rank2,one_node);
+                }
             }
         }
         (*retval)["node_type"] = "action_node";
@@ -1094,7 +1137,21 @@ void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strate
 
             }
 
-            this->reConvertJson(childerns,dealcards,one_card_str,depth + 1,max_depth,new_prefix,new_deal,new_exchange_color_list);
+            // 计算发牌后的新 reach_probs（排除与新牌冲突的 combo）
+            vector<vector<float>> new_reach_probs = reach_probs;
+            if(this->enable_range) {
+                uint64_t card_long = Card::boardInt2long(one_card.getCardInt());
+                for(int player = 0; player < 2; player++) {
+                    for(std::size_t hand_id = 0; hand_id < this->ranges[player].size(); hand_id++) {
+                        uint64_t privateBoardLong = this->ranges[player][hand_id].toBoardLong();
+                        if(Card::boardsHasIntercept(card_long, privateBoardLong)) {
+                            new_reach_probs[player][hand_id] = 0;
+                        }
+                    }
+                }
+            }
+
+            this->reConvertJson(childerns,dealcards,one_card_str,depth + 1,max_depth,new_prefix,new_deal,new_exchange_color_list,new_reach_probs);
         }
         if((*retval)["dealcards"].empty()){
             (*retval).erase("dealcards");
@@ -1153,8 +1210,11 @@ json PCfrSolver::dumps(bool with_status,int depth) {
     this->dump_progress = 0;
     cout << " found " << this->dump_total << " action nodes" << endl;
     
+    // 初始化 reach_probs（两个玩家的初始 range）
+    vector<vector<float>> initial_reach_probs = this->getReachProbs();
+    
     json retjson;
-    this->reConvertJson(this->tree->getRoot(),retjson,"",0,depth,vector<string>({"begin"}),0,vector<vector<int>>());
+    this->reConvertJson(this->tree->getRoot(),retjson,"",0,depth,vector<string>({"begin"}),0,vector<vector<int>>(),initial_reach_probs);
     
     // 完成进度条
     printProgress(dump_total, dump_total, "Generating: ");

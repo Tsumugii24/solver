@@ -30,7 +30,8 @@ TIMEOUT = 7200  # 2小时
 # 浮点数保留小数位数
 FLOAT_PRECISION = 3
 # 是否启用后处理（格式化JSON中的浮点数）
-POST_PROCESS = True
+# 注：C++ 端已内置精度控制，通常不需要后处理
+POST_PROCESS = False
 # =============================================
 
 
@@ -179,14 +180,24 @@ def run_solver(config_file: str, mode: str = "holdem", post_process: bool = None
         if process.returncode == 0:
             print(f"\n[完成] 耗时: {elapsed:.1f}秒")
             
-            # 后处理：格式化 JSON 文件中的浮点数
+            # 后处理：格式化当前生成的 JSON 文件中的浮点数
             if post_process:
-                for json_file in Path(RESULTS_DIR).glob("*.json"):
-                    print(f"[后处理] 格式化浮点数: {json_file.name}")
-                    try:
-                        format_json_floats(str(json_file), precision=FLOAT_PRECISION)
-                    except Exception as e:
-                        print(f"  警告: 格式化失败 - {e}")
+                # 从配置文件中解析 dump_result 的输出文件名
+                output_files = []
+                with open(config_file_abs, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith('dump_result '):
+                            output_files.append(line.split(None, 1)[1])
+                
+                for output_file in output_files:
+                    json_file = Path(RESULTS_DIR) / output_file
+                    if json_file.exists():
+                        print(f"[后处理] 格式化浮点数: {json_file.name}")
+                        try:
+                            format_json_floats(str(json_file), precision=FLOAT_PRECISION)
+                        except Exception as e:
+                            print(f"  警告: 格式化失败 - {e}")
             
             return {
                 "success": True,

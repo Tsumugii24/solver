@@ -100,7 +100,8 @@ public:
             float accuracy,
             bool use_isomorphism,
             int num_threads,
-            bool enable_equity = false
+            bool enable_equity = false,
+            bool enable_range = false
     );
     void train() override;
     json dumps(bool with_status,int depth);
@@ -132,6 +133,7 @@ private:
     float accuracy;
     bool use_isomorphism;
     bool enable_equity;
+    bool enable_range;
 
     const vector<PrivateCards>& playerHands(int player);
     vector<vector<float>> getReachProbs();
@@ -146,7 +148,7 @@ private:
     void findGameSpecificIsomorphisms();
     void purnTree();
     void exchangeRange(json& strategy,int rank1,int rank2,shared_ptr<ActionNode> one_node);
-    void reConvertJson(const shared_ptr<GameTreeNode>& node,json& strategy,string key,int depth,int max_depth,vector<string> prefix,int deal,vector<vector<int>> exchange_color_list);
+    void reConvertJson(const shared_ptr<GameTreeNode>& node,json& strategy,string key,int depth,int max_depth,vector<string> prefix,int deal,vector<vector<int>> exchange_color_list,const vector<vector<float>>& reach_probs);
     
     // 进度条相关
     long long countNodes(const shared_ptr<GameTreeNode>& node, int depth, int max_depth);

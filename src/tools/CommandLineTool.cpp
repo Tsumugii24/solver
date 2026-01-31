@@ -158,6 +158,9 @@ void CommandLineTool::processCommand(string input) {
     }else if(command == "set_enable_equity"){
         this->enable_equity = (stoi(paramstr) != 0);
         cout << fmt::format("Equity calculation: {}", this->enable_equity ? "enabled" : "disabled") << endl;
+    }else if(command == "set_enable_range"){
+        this->enable_range = (stoi(paramstr) != 0);
+        cout << fmt::format("Range export: {}", this->enable_range ? "enabled" : "disabled") << endl;
     }else if(command == "start_solve"){
         cout << "<<<START SOLVING>>>" << endl;
         // 打印内存估算
@@ -166,6 +169,9 @@ void CommandLineTool::processCommand(string input) {
         cout << fmt::format("Estimated memory usage: {:.2f} GB ({} floats)", memory_gb, estimated_memory) << endl;
         if(this->enable_equity) {
             cout << "Equity calculation is enabled" << endl;
+        }
+        if(this->enable_range) {
+            cout << "Range export is enabled" << endl;
         }
         
         this->ps.train(
@@ -180,7 +186,8 @@ void CommandLineTool::processCommand(string input) {
                 this->accuracy,
                 this->use_isomorphism,
                 this->thread_number,
-                this->enable_equity
+                this->enable_equity,
+                this->enable_range
         );
     }else if(command == "estimate_memory"){
         // 单独的内存估算命令

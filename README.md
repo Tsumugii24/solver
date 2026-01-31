@@ -9,21 +9,17 @@ scoop install cmake
 scoop install gcc
 scoop install ninja
 ```
-### 编译步骤
-
+### 一键编译
 ```powershell
-# 1. 进入项目目录
-cd solver
+./compile.ps1
+```
 
-# 2. 清理旧的构建缓存（如果之前编译过或移动过项目目录）
+### 手动编译
+```powershell
 Remove-Item -Recurse -Force build
 mkdir build
 cd build
-
-# 3. 配置 CMake（使用 Ninja 生成器，Release 模式）
 cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
-
-# 4. 编译
 cmake --build . --config Release
 ```
 
@@ -37,7 +33,7 @@ cmake --build . --config Release
 ### 一键编译
 ```bash
 chmod +x compile.sh
-./compile.sh
+bash compile.sh
 ```
 
 ### 手动编译

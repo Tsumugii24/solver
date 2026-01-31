@@ -268,6 +268,43 @@ equity = win_prob + tie_prob / 2
 
 ---
 
+### `set_enable_range`
+
+**语法**: `set_enable_range <0|1>`
+
+**示例**: `set_enable_range 1`
+
+**说明**: 是否启用 Range（手牌范围）的导出。
+
+| 值 | 含义 |
+|----|------|
+| `1` | 启用（默认，导出每个节点的手牌范围） |
+| `0` | 禁用（减少输出文件大小） |
+
+**Range 定义**:
+- `reach_probs`：每个 combo 到达当前节点的概率
+- 初始时等于配置中的 range weight
+- 随着玩家采取动作，range 会更新：`new_reach = old_reach × strategy_prob`
+- 发牌时，与新牌冲突的 combo 会被移除（reach = 0）
+
+**输出格式**:
+```json
+{
+  "ranges": {
+    "player": 0,
+    "range": {
+      "AcQd": 0.5,
+      "KcQd": 1.0,
+      ...
+    }
+  }
+}
+```
+
+> 💡 **提示**: Range 导出默认启用。如果不需要手牌范围信息，可以设为 0 以减少输出文件大小。
+
+---
+
 ## 执行与输出
 
 ### `start_solve`
@@ -358,6 +395,7 @@ set_max_iteration 300
 set_print_interval 10
 set_use_isomorphism 1
 # set_enable_equity 1  # 可选：启用 equity 计算
+# set_enable_range 0   # 可选：禁用 range 导出（默认启用）
 
 # 执行求解
 start_solve

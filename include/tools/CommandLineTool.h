@@ -43,6 +43,7 @@ private:
     int print_interval=10;
     int dump_rounds = 1;
     bool enable_equity = false;
+    bool enable_range = true;
     shared_ptr<GameTreeBuildingSettings> gtbs;
 };
 

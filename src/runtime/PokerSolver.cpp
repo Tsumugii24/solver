@@ -5,6 +5,60 @@
 #include "runtime/PokerSolver.h"
 #include <iomanip>
 #include <chrono>
+#include <sstream>
+#include <cmath>
+
+// 自定义 JSON 序列化函数，控制浮点数精度
+static void write_json_with_precision(std::ostream& os, const json& j, int float_precision = 3, int indent = 0, bool pretty = false) {
+    const std::string indent_str = pretty ? std::string(indent * 2, ' ') : "";
+    const std::string newline = pretty ? "\n" : "";
+    
+    if (j.is_null()) {
+        os << "null";
+    } else if (j.is_boolean()) {
+        os << (j.get<bool>() ? "true" : "false");
+    } else if (j.is_number_integer()) {
+        os << j.get<int64_t>();
+    } else if (j.is_number_unsigned()) {
+        os << j.get<uint64_t>();
+    } else if (j.is_number_float()) {
+        // 关键：控制浮点数精度，整数则不带小数点
+        double val = j.get<double>();
+        // 先四舍五入到指定精度
+        double multiplier = std::pow(10.0, float_precision);
+        double rounded = std::round(val * multiplier) / multiplier;
+        // 判断是否为整数
+        if (rounded == static_cast<int64_t>(rounded)) {
+            os << static_cast<int64_t>(rounded);
+        } else {
+            os << std::fixed << std::setprecision(float_precision) << rounded;
+        }
+    } else if (j.is_string()) {
+        os << "\"" << j.get<std::string>() << "\"";
+    } else if (j.is_array()) {
+        os << "[";
+        bool first = true;
+        for (const auto& item : j) {
+            if (!first) os << ",";
+            first = false;
+            write_json_with_precision(os, item, float_precision, indent + 1, pretty);
+        }
+        os << "]";
+    } else if (j.is_object()) {
+        os << "{" << newline;
+        bool first = true;
+        for (auto it = j.begin(); it != j.end(); ++it) {
+            if (!first) os << "," << newline;
+            first = false;
+            if (pretty) os << indent_str << "  ";
+            os << "\"" << it.key() << "\":";
+            write_json_with_precision(os, it.value(), float_precision, indent + 1, pretty);
+        }
+        os << newline;
+        if (pretty) os << indent_str;
+        os << "}";
+    }
+}
 
 PokerSolver::PokerSolver() {
 
@@ -50,7 +104,7 @@ void PokerSolver::build_game_tree(
 }
 
 void PokerSolver::train(string p1_range, string p2_range, string boards, string log_file, int iteration_number,
-                        int print_interval, string algorithm,int warmup,float accuracy,bool use_isomorphism,int threads,bool enable_equity) {
+                        int print_interval, string algorithm,int warmup,float accuracy,bool use_isomorphism,int threads,bool enable_equity,bool enable_range) {
     string player1RangeStr = p1_range;
     string player2RangeStr = p2_range;
 
@@ -81,6 +135,7 @@ void PokerSolver::train(string p1_range, string p2_range, string boards, string 
             , use_isomorphism
             , threads
             , enable_equity
+            , enable_range
     );
     this->solver->train();
 }
@@ -98,8 +153,8 @@ void PokerSolver::dump_strategy(string dump_file,int dump_rounds) {
     cout << "Writing to file: " << dump_file << "..." << flush;
     ofstream fileWriter;
     fileWriter.open(dump_file);
-    // 设置浮点数精度为3位小数
-    fileWriter << std::fixed << std::setprecision(3) << dump_json;
+    // 使用自定义序列化函数，确保浮点数精度为3位小数
+    write_json_with_precision(fileWriter, dump_json, 3, 0, false);
     fileWriter.flush();
     fileWriter.close();
     auto write_time = std::chrono::high_resolution_clock::now();

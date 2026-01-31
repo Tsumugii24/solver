@@ -1,0 +1,26 @@
+set_pot 20
+set_effective_stack 100
+set_board Qc,9c,3h,6h,4c
+set_range_oop K3s,K2s,AQo,KQo,QQ:0.25,QJs,QTs,Q9s,Q8s,Q7s,Q6s,Q5s,Q4s:0.75
+set_range_ip KJs,KTs,K9s,K8s:0.261,K7s:0.261,K6s:0.261,K5s:0.261,K4s:0.261,K3s:0.261,K2s:0.261
+set_bet_sizes oop,river,bet,30,50,75,125,200
+set_bet_sizes oop,river,raise,75,175
+set_bet_sizes oop,river,donk,33
+set_bet_sizes oop,river,allin
+set_bet_sizes ip,river,bet,30,50,75,125,200
+set_bet_sizes ip,river,raise,75,175
+set_bet_sizes ip,river,allin
+set_allin_threshold 0.5
+set_raise_limit 3
+build_tree
+estimate_memory
+set_thread_num -1
+set_accuracy 1
+set_max_iteration 300
+set_print_interval 30
+set_use_isomorphism 1
+set_enable_equity 0
+set_enable_range 1
+start_solve
+set_dump_rounds 1
+dump_result river_strategy.json

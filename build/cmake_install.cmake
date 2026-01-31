@@ -1,4 +1,4 @@
-# Install script for directory: D:/pocker/TexasSolver-console
+# Install script for directory: D:/pocker/solver
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -39,47 +39,47 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("D:/pocker/TexasSolver-console/build/ext/fmt/cmake_install.cmake")
+  include("D:/pocker/solver/build/ext/fmt/cmake_install.cmake")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "D:/pocker/TexasSolver-console/install/resources")
+   "D:/pocker/solver/install/resources")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-  file(INSTALL DESTINATION "D:/pocker/TexasSolver-console/install" TYPE DIRECTORY OPTIONAL FILES "D:/pocker/TexasSolver-console/resources")
+  file(INSTALL DESTINATION "D:/pocker/solver/install" TYPE DIRECTORY OPTIONAL FILES "D:/pocker/solver/resources")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "D:/pocker/TexasSolver-console/install/console_solver.exe")
+   "D:/pocker/solver/install/console_solver.exe")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-  file(INSTALL DESTINATION "D:/pocker/TexasSolver-console/install" TYPE EXECUTABLE FILES "D:/pocker/TexasSolver-console/build/console_solver.exe")
-  if(EXISTS "$ENV{DESTDIR}/D:/pocker/TexasSolver-console/install/console_solver.exe" AND
-     NOT IS_SYMLINK "$ENV{DESTDIR}/D:/pocker/TexasSolver-console/install/console_solver.exe")
+  file(INSTALL DESTINATION "D:/pocker/solver/install" TYPE EXECUTABLE FILES "D:/pocker/solver/build/console_solver.exe")
+  if(EXISTS "$ENV{DESTDIR}/D:/pocker/solver/install/console_solver.exe" AND
+     NOT IS_SYMLINK "$ENV{DESTDIR}/D:/pocker/solver/install/console_solver.exe")
     if(CMAKE_INSTALL_DO_STRIP)
-      execute_process(COMMAND "C:/Users/nalo/scoop/apps/gcc/current/bin/strip.exe" "$ENV{DESTDIR}/D:/pocker/TexasSolver-console/install/console_solver.exe")
+      execute_process(COMMAND "C:/Users/nalo/scoop/apps/gcc/current/bin/strip.exe" "$ENV{DESTDIR}/D:/pocker/solver/install/console_solver.exe")
     endif()
   endif()
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  include("D:/pocker/TexasSolver-console/build/CMakeFiles/console_solver.dir/install-cxx-module-bmi-Release.cmake" OPTIONAL)
+  include("D:/pocker/solver/build/CMakeFiles/console_solver.dir/install-cxx-module-bmi-Release.cmake" OPTIONAL)
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "D:/pocker/TexasSolver-console/build/install_local_manifest.txt"
+  file(WRITE "D:/pocker/solver/build/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()
 if(CMAKE_INSTALL_COMPONENT)
@@ -95,6 +95,6 @@ else()
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "D:/pocker/TexasSolver-console/build/${CMAKE_INSTALL_MANIFEST}"
+  file(WRITE "D:/pocker/solver/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()
