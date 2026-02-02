@@ -1,0 +1,7 @@
+.github/
+.vscode/
+.idea/
+.DS_Store
+results/
+build/
+install/

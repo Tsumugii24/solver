@@ -1,0 +1,54 @@
+//
+// Created by Xuefeng Huang on 2020/1/31.
+//
+
+#ifndef TEXASSOLVER_CFRPLUSTRAINABLE_H
+#define TEXASSOLVER_CFRPLUSTRAINABLE_H
+
+#include <nodes/ActionNode.h>
+#include <ranges/PrivateCards.h>
+#include "Trainable.h"
+using namespace std;
+
+class CfrPlusTrainable : public Trainable{
+private:
+    shared_ptr<ActionNode> action_node;
+    vector<PrivateCards> privateCards;
+    int action_number;
+    int card_number;
+    vector<float> r_plus;
+    vector<float> r_plus_sum;
+    vector<float> cum_r_plus;
+    vector<float> cum_r_plus_sum;
+    vector<float> regrets;
+    vector<float> retval;
+    vector<float> evs;
+    vector<float> equities;
+public:
+    CfrPlusTrainable();
+    CfrPlusTrainable(shared_ptr<ActionNode> action_node, vector<PrivateCards> privateCards);
+    bool isAllZeros(vector<float> input_array);
+
+    const vector<float> getAverageStrategy() override;
+
+    const vector<float> getcurrentStrategy() override;
+
+    void updateRegrets(const vector<float>& regrets, int iteration_number, const vector<float>& reach_probs) override;
+
+    void setEv(const vector<float>& evs) override;
+
+    void setEquity(const vector<float>& equities) override;
+
+    void copyStrategy(shared_ptr<Trainable> other_trainable) override;
+
+    json dump_strategy(bool with_state) override;
+
+    json dump_evs() override;
+
+    json dump_equities() override;
+
+    TrainableType get_type() override;
+};
+
+
+#endif //TEXASSOLVER_CFRPLUSTRAINABLE_H
