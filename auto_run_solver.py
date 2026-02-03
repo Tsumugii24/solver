@@ -505,6 +505,9 @@ def main():
   python auto_run_solver.py --start 1 --end 5 --file cards.txt
   python auto_run_solver.py --start 1 --end 5 --file cards.xlsx --column B
 
+  # 指定特定序号列表（逗号分隔，适合重新求解缺失的牌面）
+  python auto_run_solver.py --indices 427,430,433,436,439
+
   # 自定义求解参数
   python auto_run_solver.py --start 1 --end 3 --thread-num 8 --max-iteration 500
         """
@@ -514,6 +517,7 @@ def main():
     parser.add_argument("--start", type=int, help="起始序号（从1开始）")
     parser.add_argument("--end", type=int, help="结束序号")
     parser.add_argument("--all", action="store_true", help="求解所有牌面")
+    parser.add_argument("--indices", type=str, help="指定序号列表（逗号分隔，如: 1,3,5,7）")
     
     # 牌面文件配置
     parser.add_argument("--file", type=str, default="cards.txt", help="牌面文件名（默认: cards.txt，支持 .txt 或 .xlsx）")
@@ -531,9 +535,12 @@ def main():
     args = parser.parse_args()
     
     # 参数检查
-    if not args.all and (args.start is None or args.end is None):
+    has_range = args.start is not None and args.end is not None
+    has_indices = args.indices is not None
+    
+    if not args.all and not has_range and not has_indices:
         parser.print_help()
-        print("\n[错误] 请指定 --start 和 --end，或使用 --all")
+        print("\n[错误] 请指定 --start/--end、--indices 或 --all")
         sys.exit(1)
     
     # 检查 solver
@@ -561,29 +568,48 @@ def main():
         print("[错误] 牌面文件中没有找到数据")
         sys.exit(1)
     
-    # 确定范围
-    if args.all:
+    # 确定要求解的牌面
+    if has_indices:
+        # 使用指定的序号列表
+        try:
+            indices = [int(x.strip()) for x in args.indices.split(",") if x.strip()]
+        except ValueError:
+            print(f"[错误] 序号格式无效: {args.indices}")
+            print("       请使用逗号分隔的数字，如: 1,3,5,7")
+            sys.exit(1)
+        
+        # 验证序号
+        invalid_indices = [i for i in indices if i < 1 or i > len(all_boards)]
+        if invalid_indices:
+            print(f"[错误] 以下序号超出范围 (1-{len(all_boards)}): {invalid_indices}")
+            sys.exit(1)
+        
+        # 筛选牌面（保持原始序号）
+        boards_to_solve = [(i, all_boards[i - 1]) for i in indices]
+        print(f"\n[任务] 将求解指定的 {len(boards_to_solve)} 个牌面")
+        print(f"[序号] {args.indices}")
+    elif args.all:
         start_idx = 1
         end_idx = len(all_boards)
+        boards_to_solve = [(i, all_boards[i - 1]) for i in range(start_idx, end_idx + 1)]
+        print(f"\n[任务] 将求解第 {start_idx} 到第 {end_idx} 个牌面，共 {len(boards_to_solve)} 个")
     else:
         start_idx = args.start
         end_idx = min(args.end, len(all_boards))
-    
-    if start_idx < 1 or start_idx > len(all_boards):
-        print(f"[错误] 起始序号无效: {start_idx}（有效范围: 1-{len(all_boards)}）")
-        sys.exit(1)
-    
-    # 筛选要处理的牌面
-    boards_to_solve = all_boards[start_idx - 1:end_idx]
-    
-    print(f"\n[任务] 将求解第 {start_idx} 到第 {end_idx} 个牌面，共 {len(boards_to_solve)} 个")
+        
+        if start_idx < 1 or start_idx > len(all_boards):
+            print(f"[错误] 起始序号无效: {start_idx}（有效范围: 1-{len(all_boards)}）")
+            sys.exit(1)
+        
+        boards_to_solve = [(i, all_boards[i - 1]) for i in range(start_idx, end_idx + 1)]
+        print(f"\n[任务] 将求解第 {start_idx} 到第 {end_idx} 个牌面，共 {len(boards_to_solve)} 个")
     print(f"[配置] thread_num={args.thread_num}, max_iteration={args.max_iteration}")
     print(f"[容错] 最大重试次数: {args.max_retries}")
     
     # 显示牌面列表
     print(f"\n牌面列表:")
-    for i, (row_idx, board) in enumerate(boards_to_solve, start_idx):
-        print(f"  [{i}] {board}")
+    for idx, (row_idx, board) in boards_to_solve:
+        print(f"  [{idx}] {board}")
     
     print("\n" + "-" * 60)
     input("按 Enter 开始求解...")
@@ -593,9 +619,9 @@ def main():
     start_time = datetime.now()
     total_start = time.time()
     
-    for i, (row_idx, board) in enumerate(boards_to_solve, start_idx):
+    for task_num, (idx, (row_idx, board)) in enumerate(boards_to_solve, 1):
         print(f"\n{'='*60}")
-        print(f"[{i}/{end_idx}] 求解牌面: {board}")
+        print(f"[{task_num}/{len(boards_to_solve)}] 序号 {idx} - 求解牌面: {board}")
         print(f"{'='*60}")
         
         # 生成配置文件
@@ -615,7 +641,7 @@ def main():
             print(f"[错误] 生成配置文件失败: {e}")
             stats.failed += 1
             stats.results.append(SolveResult(
-                index=i, board=board, success=False, error=f"配置文件生成失败: {e}"
+                index=idx, board=board, success=False, error=f"配置文件生成失败: {e}"
             ))
             continue
         
@@ -626,7 +652,7 @@ def main():
         )
         
         result = SolveResult(
-            index=i,
+            index=idx,
             board=board,
             success=success,
             elapsed=elapsed,
@@ -649,8 +675,7 @@ def main():
                 print(f"\n[失败] {board} - {error}")
         
         # 打印进度
-        completed = i - start_idx + 1
-        print_progress_bar(completed, len(boards_to_solve))
+        print_progress_bar(task_num, len(boards_to_solve))
     
     # 计算总时间
     stats.total_time = time.time() - total_start
