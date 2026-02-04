@@ -618,70 +618,92 @@ def main():
     stats = SolveStats(total=len(boards_to_solve))
     start_time = datetime.now()
     total_start = time.time()
+    interrupted = False
     
-    for task_num, (idx, (row_idx, board)) in enumerate(boards_to_solve, 1):
-        print(f"\n{'='*60}")
-        print(f"[{task_num}/{len(boards_to_solve)}] 序号 {idx} - 求解牌面: {board}")
-        print(f"{'='*60}")
-        
-        # 生成配置文件
-        try:
-            config_file = generate_config_file(
-                board=board,
-                output_dir=CONFIG_DIR,
-                pot=args.pot,
-                effective_stack=args.stack,
-                thread_num=args.thread_num,
-                accuracy=args.accuracy,
-                max_iteration=args.max_iteration,
-                print_interval=args.print_interval
-            )
-            print(f"[配置] 生成: {config_file.name}")
-        except Exception as e:
-            print(f"[错误] 生成配置文件失败: {e}")
-            stats.failed += 1
-            stats.results.append(SolveResult(
-                index=idx, board=board, success=False, error=f"配置文件生成失败: {e}"
-            ))
-            continue
-        
-        # 运行求解器
-        success, elapsed, error, retries = run_solver_with_retry(
-            config_file=config_file,
-            max_retries=args.max_retries
-        )
-        
-        result = SolveResult(
-            index=idx,
-            board=board,
-            success=success,
-            elapsed=elapsed,
-            error=error,
-            retries=retries,
-            config_file=str(config_file),
-            output_file=f"{board_to_filename(board)}.json"
-        )
-        stats.results.append(result)
-        
-        if success:
-            stats.success += 1
-            print(f"\n[完成] {board} - 耗时 {elapsed:.1f} 秒")
-        else:
-            if retries >= args.max_retries:
-                stats.skipped += 1
-                print(f"\n[跳过] {board} - 超过最大重试次数")
-            else:
+    try:
+        for task_num, (idx, (row_idx, board)) in enumerate(boards_to_solve, 1):
+            print(f"\n{'='*60}")
+            print(f"[{task_num}/{len(boards_to_solve)}] 序号 {idx} - 求解牌面: {board}")
+            print(f"{'='*60}")
+            
+            # 生成配置文件
+            try:
+                config_file = generate_config_file(
+                    board=board,
+                    output_dir=CONFIG_DIR,
+                    pot=args.pot,
+                    effective_stack=args.stack,
+                    thread_num=args.thread_num,
+                    accuracy=args.accuracy,
+                    max_iteration=args.max_iteration,
+                    print_interval=args.print_interval
+                )
+                print(f"[配置] 生成: {config_file.name}")
+            except Exception as e:
+                print(f"[错误] 生成配置文件失败: {e}")
                 stats.failed += 1
-                print(f"\n[失败] {board} - {error}")
-        
-        # 打印进度
-        print_progress_bar(task_num, len(boards_to_solve))
+                stats.results.append(SolveResult(
+                    index=idx, board=board, success=False, error=f"配置文件生成失败: {e}"
+                ))
+                continue
+            
+            # 运行求解器
+            success, elapsed, error, retries = run_solver_with_retry(
+                config_file=config_file,
+                max_retries=args.max_retries
+            )
+            
+            result = SolveResult(
+                index=idx,
+                board=board,
+                success=success,
+                elapsed=elapsed,
+                error=error,
+                retries=retries,
+                config_file=str(config_file),
+                output_file=f"{board_to_filename(board)}.json"
+            )
+            stats.results.append(result)
+            
+            if success:
+                stats.success += 1
+                print(f"\n[完成] {board} - 耗时 {elapsed:.1f} 秒")
+            else:
+                if retries >= args.max_retries:
+                    stats.skipped += 1
+                    print(f"\n[跳过] {board} - 超过最大重试次数")
+                else:
+                    stats.failed += 1
+                    print(f"\n[失败] {board} - {error}")
+            
+            # 打印进度
+            print_progress_bar(task_num, len(boards_to_solve))
+    
+    except KeyboardInterrupt:
+        interrupted = True
+        print("\n\n" + "!" * 60)
+        print("  用户中断 (Ctrl+C)")
+        print("!" * 60)
     
     # 计算总时间
     stats.total_time = time.time() - total_start
     
-    # 打印汇总
+    # 打印汇总（无论是否中断都打印）
+    if interrupted:
+        print("\n[提示] 以下是中断前已完成的任务统计:")
     print_summary(stats, start_time)
+    
+    # 如果被中断，输出未完成的任务
+    if interrupted and len(stats.results) < len(boards_to_solve):
+        completed_indices = {r.index for r in stats.results}
+        remaining = [(idx, board) for idx, (row_idx, board) in boards_to_solve if idx not in completed_indices]
+        
+        if remaining:
+            print(f"\n⏸️  未完成的任务 ({len(remaining)} 个):")
+            remaining_indices = [str(idx) for idx, _ in remaining]
+            print(f"   序号: {','.join(remaining_indices)}")
+            print(f"\n💡 可以使用以下命令继续:")
+            print(f"   python auto_run_solver.py --indices {','.join(remaining_indices)}")
 
 
 if __name__ == "__main__":
