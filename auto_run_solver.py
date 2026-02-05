@@ -486,6 +486,113 @@ def print_summary(stats: SolveStats, start_time: datetime):
     print("\n" + "=" * 70)
 
 
+def parse_range_expr(expr: str, max_value: int = None) -> List[int]:
+    """
+    解析范围表达式
+    
+    支持格式:
+    - 单个数字: "5"
+    - 范围: "1-10"
+    - 混合: "1-10,15,20-30,35"
+    - 带重复: "1-10,5,8" (自动去重)
+    
+    Args:
+        expr: 范围表达式字符串
+        max_value: 最大有效值（用于验证）
+        
+    Returns:
+        排序去重后的序号列表
+    """
+    indices = set()
+    
+    # 按逗号分割
+    parts = expr.replace(" ", "").split(",")
+    
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        
+        if "-" in part:
+            # 范围格式: "1-10"
+            try:
+                range_parts = part.split("-")
+                if len(range_parts) == 2:
+                    start = int(range_parts[0])
+                    end = int(range_parts[1])
+                    # 确保 start <= end
+                    if start > end:
+                        start, end = end, start
+                    indices.update(range(start, end + 1))
+                else:
+                    # 处理类似 "1-10-20" 的情况，取第一个和最后一个
+                    nums = [int(x) for x in range_parts if x]
+                    if nums:
+                        indices.update(range(min(nums), max(nums) + 1))
+            except ValueError:
+                print(f"[警告] 忽略无效的范围: {part}")
+        else:
+            # 单个数字
+            try:
+                indices.add(int(part))
+            except ValueError:
+                print(f"[警告] 忽略无效的数字: {part}")
+    
+    # 过滤无效值
+    if max_value:
+        invalid = [i for i in indices if i < 1 or i > max_value]
+        if invalid:
+            print(f"[警告] 以下序号超出范围 (1-{max_value})，已忽略: {sorted(invalid)[:10]}{'...' if len(invalid) > 10 else ''}")
+        indices = {i for i in indices if 1 <= i <= max_value}
+    else:
+        # 至少过滤掉小于1的
+        indices = {i for i in indices if i >= 1}
+    
+    return sorted(indices)
+
+
+def compress_indices_to_expr(indices: List[int]) -> str:
+    """
+    将序号列表压缩成紧凑的范围表达式
+    
+    例如: [1,2,3,5,7,8,9,10,15] -> "1-3,5,7-10,15"
+    
+    Args:
+        indices: 排序后的序号列表
+        
+    Returns:
+        范围表达式字符串
+    """
+    if not indices:
+        return ""
+    
+    indices = sorted(set(indices))
+    parts = []
+    start = indices[0]
+    end = indices[0]
+    
+    for i in range(1, len(indices)):
+        if indices[i] == end + 1:
+            # 连续，扩展范围
+            end = indices[i]
+        else:
+            # 不连续，保存当前范围
+            if start == end:
+                parts.append(str(start))
+            else:
+                parts.append(f"{start}-{end}")
+            start = indices[i]
+            end = indices[i]
+    
+    # 保存最后一个范围
+    if start == end:
+        parts.append(str(start))
+    else:
+        parts.append(f"{start}-{end}")
+    
+    return ",".join(parts)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="TexasSolver 自动批量求解脚本",
@@ -493,31 +600,30 @@ def main():
         epilog="""
 示例:
   # 求解第 1 到第 10 个牌面
-  python auto_run_solver.py --start 1 --end 10
+  python auto_run_solver.py 1-10
 
-  # 求解第 5 个牌面
-  python auto_run_solver.py --start 5 --end 5
+  # 求解单个牌面
+  python auto_run_solver.py 5
+
+  # 混合范围和单个序号
+  python auto_run_solver.py 1-10,15,20-30,35
 
   # 求解所有牌面
-  python auto_run_solver.py --all
+  python auto_run_solver.py all
 
-  # 指定牌面文件（支持 .txt 或 .xlsx）
-  python auto_run_solver.py --start 1 --end 5 --file cards.txt
-  python auto_run_solver.py --start 1 --end 5 --file cards.xlsx --column B
+  # 重新求解缺失的牌面（从 check_missing.py 输出复制）
+  python auto_run_solver.py 427,430,433,436,439
 
-  # 指定特定序号列表（逗号分隔，适合重新求解缺失的牌面）
-  python auto_run_solver.py --indices 427,430,433,436,439
+  # 指定牌面文件
+  python auto_run_solver.py 1-10 --file cards.txt
 
   # 自定义求解参数
-  python auto_run_solver.py --start 1 --end 3 --thread-num 8 --max-iteration 500
+  python auto_run_solver.py 1-10 --thread-num 8 --max-iteration 500
         """
     )
     
-    # 范围参数
-    parser.add_argument("--start", type=int, help="起始序号（从1开始）")
-    parser.add_argument("--end", type=int, help="结束序号")
-    parser.add_argument("--all", action="store_true", help="求解所有牌面")
-    parser.add_argument("--indices", type=str, help="指定序号列表（逗号分隔，如: 1,3,5,7）")
+    # 范围参数（位置参数）
+    parser.add_argument("range", nargs="?", help="序号范围（如: 1-10,15,20-30 或 all）")
     
     # 牌面文件配置
     parser.add_argument("--file", type=str, default="cards.txt", help="牌面文件名（默认: cards.txt，支持 .txt 或 .xlsx）")
@@ -535,12 +641,9 @@ def main():
     args = parser.parse_args()
     
     # 参数检查
-    has_range = args.start is not None and args.end is not None
-    has_indices = args.indices is not None
-    
-    if not args.all and not has_range and not has_indices:
+    if not args.range:
         parser.print_help()
-        print("\n[错误] 请指定 --start/--end、--indices 或 --all")
+        print("\n[错误] 请指定序号范围，如: 1-10 或 1-10,15,20-30 或 all")
         sys.exit(1)
     
     # 检查 solver
@@ -568,41 +671,28 @@ def main():
         print("[错误] 牌面文件中没有找到数据")
         sys.exit(1)
     
-    # 确定要求解的牌面
-    if has_indices:
-        # 使用指定的序号列表
-        try:
-            indices = [int(x.strip()) for x in args.indices.split(",") if x.strip()]
-        except ValueError:
-            print(f"[错误] 序号格式无效: {args.indices}")
-            print("       请使用逗号分隔的数字，如: 1,3,5,7")
-            sys.exit(1)
-        
-        # 验证序号
-        invalid_indices = [i for i in indices if i < 1 or i > len(all_boards)]
-        if invalid_indices:
-            print(f"[错误] 以下序号超出范围 (1-{len(all_boards)}): {invalid_indices}")
-            sys.exit(1)
-        
-        # 筛选牌面（保持原始序号）
-        boards_to_solve = [(i, all_boards[i - 1]) for i in indices]
-        print(f"\n[任务] 将求解指定的 {len(boards_to_solve)} 个牌面")
-        print(f"[序号] {args.indices}")
-    elif args.all:
-        start_idx = 1
-        end_idx = len(all_boards)
-        boards_to_solve = [(i, all_boards[i - 1]) for i in range(start_idx, end_idx + 1)]
-        print(f"\n[任务] 将求解第 {start_idx} 到第 {end_idx} 个牌面，共 {len(boards_to_solve)} 个")
+    # 解析范围表达式
+    if args.range.lower() == "all":
+        # 求解所有
+        indices = list(range(1, len(all_boards) + 1))
+        print(f"\n[任务] 将求解所有 {len(indices)} 个牌面")
     else:
-        start_idx = args.start
-        end_idx = min(args.end, len(all_boards))
+        # 解析范围表达式
+        indices = parse_range_expr(args.range, max_value=len(all_boards))
         
-        if start_idx < 1 or start_idx > len(all_boards):
-            print(f"[错误] 起始序号无效: {start_idx}（有效范围: 1-{len(all_boards)}）")
+        if not indices:
+            print("[错误] 没有有效的序号")
             sys.exit(1)
         
-        boards_to_solve = [(i, all_boards[i - 1]) for i in range(start_idx, end_idx + 1)]
-        print(f"\n[任务] 将求解第 {start_idx} 到第 {end_idx} 个牌面，共 {len(boards_to_solve)} 个")
+        # 显示解析结果
+        if len(indices) <= 20:
+            print(f"\n[任务] 将求解 {len(indices)} 个牌面: {indices}")
+        else:
+            print(f"\n[任务] 将求解 {len(indices)} 个牌面")
+            print(f"[范围] {indices[0]}-{indices[-1]} (含 {len(indices)} 个序号)")
+    
+    # 筛选牌面
+    boards_to_solve = [(i, all_boards[i - 1]) for i in indices]
     print(f"[配置] thread_num={args.thread_num}, max_iteration={args.max_iteration}")
     print(f"[容错] 最大重试次数: {args.max_retries}")
     
@@ -699,11 +789,13 @@ def main():
         remaining = [(idx, board) for idx, (row_idx, board) in boards_to_solve if idx not in completed_indices]
         
         if remaining:
-            print(f"\n⏸️  未完成的任务 ({len(remaining)} 个):")
-            remaining_indices = [str(idx) for idx, _ in remaining]
-            print(f"   序号: {','.join(remaining_indices)}")
-            print(f"\n💡 可以使用以下命令继续:")
-            print(f"   python auto_run_solver.py --indices {','.join(remaining_indices)}")
+            print(f"\n[未完成] 还有 {len(remaining)} 个任务未完成:")
+            remaining_indices = [idx for idx, _ in remaining]
+            # 生成紧凑的范围表达式
+            resume_expr = compress_indices_to_expr(remaining_indices)
+            print(f"   序号: {resume_expr}")
+            print(f"\n[继续] 可以使用以下命令继续:")
+            print(f"   python auto_run_solver.py {resume_expr}")
 
 
 if __name__ == "__main__":

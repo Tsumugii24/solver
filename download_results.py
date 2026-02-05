@@ -351,7 +351,7 @@ def main():
     parser.add_argument("url", help="下载链接")
     parser.add_argument("-o", "--output", type=str, default=str(DEFAULT_OUTPUT_DIR), help=f"输出目录（默认: {DEFAULT_OUTPUT_DIR}）")
     parser.add_argument("-f", "--filename", type=str, help="保存的文件名（默认从URL获取）")
-    parser.add_argument("--token", type=str, help="Jupyter Server token（jupyter server list）")
+    parser.add_argument("--token", type=str, help="Jupyter Server token（jupyter lab list）")
     parser.add_argument("--cookie", type=str, help="Cookie 字符串（从浏览器复制）")
     parser.add_argument("--verify", action="store_true", help="启用 SSL 证书验证（默认跳过）")
     parser.add_argument("--no-extract", action="store_true", help="不自动解压 ZIP 文件")
