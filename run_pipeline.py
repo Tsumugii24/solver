@@ -91,12 +91,32 @@ def _do_convert_and_upload(upload: bool) -> bool:
     return ok
 
 
+def _ensure_huggingface_hub() -> bool:
+    """确保 huggingface_hub 已安装，未安装则自动 pip install。返回是否可用。"""
+    try:
+        from huggingface_hub import get_token
+        return True
+    except ImportError:
+        print("[HF] 未检测到 huggingface_hub，正在自动安装...")
+        r = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-q", "huggingface_hub"],
+            cwd=str(SCRIPT_DIR),
+        )
+        if r.returncode != 0:
+            print("[错误] 安装 huggingface_hub 失败，请手动运行: pip install huggingface_hub")
+            return False
+        print("[HF] 安装完成")
+        return True
+
+
 def _ensure_hf_logged_in() -> bool:
     """检查 HF 登录状态，未登录则尝试用 HF_TOKEN 登录。返回是否已登录。"""
+    if not _ensure_huggingface_hub():
+        return False
     try:
         from huggingface_hub import get_token, login, HfApi
     except ImportError:
-        print("[警告] 未安装 huggingface_hub，无法检查登录状态")
+        print("[错误] 无法导入 huggingface_hub")
         return False
 
     token = get_token()

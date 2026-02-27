@@ -2,7 +2,7 @@
 """
 将 Parquet 文件上传到 Hugging Face Dataset，使用 Xet 管理大文件。
 
-目标: https://huggingface.co/datasets/Tsumugii/gto-srp-100bb-v0
+目标: https://huggingface.co/datasets/{repo_id}
 
 用法:
   python upload_to_hf.py [dir]
@@ -31,7 +31,7 @@ except ImportError:
     print("pip install -U huggingface_hub")
     sys.exit(1)
 
-REPO_ID = "Tsumugii/gto-srp-100bb-v0"
+REPO_ID = "Tsumugii/gto-srp-100bb-v1"
 
 
 def main() -> None:
