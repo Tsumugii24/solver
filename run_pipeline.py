@@ -81,6 +81,8 @@ def _delete_parquets() -> int:
 
 def _do_convert_and_upload(upload: bool) -> bool:
     """执行 JSON→Parquet 转换，可选上传。上传成功后删除 parquet 以节省空间。返回是否成功。"""
+    if not _ensure_pyarrow():
+        return False
     ok = _run([sys.executable, str(UPLOAD_DIR / "batch_json_to_parquet.py"), str(RESULTS_DIR)])
     if ok and upload:
         ok = _run([sys.executable, str(UPLOAD_DIR / "upload_to_hf.py"), str(RESULTS_DIR)])
@@ -89,6 +91,24 @@ def _do_convert_and_upload(upload: bool) -> bool:
             if n > 0:
                 print(f"[清理] 已删除 {n} 个已上传的 parquet 文件")
     return ok
+
+
+def _ensure_pyarrow() -> bool:
+    """确保 pyarrow 已安装，未安装则自动 pip install。返回是否可用。"""
+    try:
+        import pyarrow
+        return True
+    except ImportError:
+        print("[转换] 未检测到 pyarrow，正在自动安装...")
+        r = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-q", "pyarrow"],
+            cwd=str(SCRIPT_DIR),
+        )
+        if r.returncode != 0:
+            print("[错误] 安装 pyarrow 失败，请手动运行: pip install pyarrow")
+            return False
+        print("[转换] pyarrow 安装完成")
+        return True
 
 
 def _ensure_huggingface_hub() -> bool:
@@ -204,6 +224,8 @@ def main():
 
     if args.convert_only:
         print("\n[模式] 仅转换+上传（不跑 solver）")
+        if not _ensure_pyarrow():
+            sys.exit(1)
         _run([sys.executable, str(UPLOAD_DIR / "batch_json_to_parquet.py"), str(RESULTS_DIR)])
         if not args.no_upload:
             _run([sys.executable, str(UPLOAD_DIR / "upload_to_hf.py"), str(RESULTS_DIR)])
