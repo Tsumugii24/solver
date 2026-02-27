@@ -637,6 +637,7 @@ def main():
     parser.add_argument("--max-iteration", type=int, default=300, help="最大迭代次数（默认: 300）")
     parser.add_argument("--print-interval", type=int, default=30, help="打印间隔（默认: 30）")
     parser.add_argument("--max-retries", type=int, default=3, help="最大重试次数（默认: 3）")
+    parser.add_argument("--interactive", "-i", action="store_true", help="交互模式，开始前等待确认（默认跳过确认）")
     
     args = parser.parse_args()
     
@@ -702,7 +703,8 @@ def main():
         print(f"  [{idx}] {board}")
     
     print("\n" + "-" * 60)
-    input("按 Enter 开始求解...")
+    if args.interactive:
+        input("按 Enter 开始求解...")
     
     # 开始求解
     stats = SolveStats(total=len(boards_to_solve))
