@@ -25,8 +25,26 @@ vector<PrivateCards> PrivateRangeConverter::rangeStr2Cards(string range_str, vec
         }
 
         int range_len = one_range.length();
-        // TODO finish here , convert str to a PrivateRanges[]
-        if(range_len == 3){
+        // Convert str to PrivateRanges[]
+        // Supported formats:
+        //   4 chars: specific hand like "AhKs", "2d2c" (rank+suit for each card)
+        //   3 chars: "AKs" (suited), "AKo" (offsuit)
+        //   2 chars: "AA" (pair), "AK" (all combos)
+        if(range_len == 4){
+            // Specific hand: e.g. "AhKs" -> card1="Ah", card2="Ks"
+            string card1_str = one_range.substr(0, 2);
+            string card2_str = one_range.substr(2, 2);
+            int card1 = Card::strCard2int(card1_str);
+            int card2 = Card::strCard2int(card2_str);
+            if(Card::boardsHasIntercept(
+                    Card::boardInts2long(vector<int>{card1,card2}),
+                    Card::boardInts2long(initial_boards)
+            )){
+                continue;
+            }
+            this_card = PrivateCards(card1,card2,weight);
+            private_cards.push_back(this_card);
+        }else if(range_len == 3){
             if(one_range.at(2) == 's'){
                 char rank1 = one_range.at(0);
                 char rank2 = one_range.at(1);

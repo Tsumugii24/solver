@@ -777,10 +777,8 @@ def analyze_tree_stats(json_path: str) -> Dict[str, Any]:
     return stats
 
 
-def main():
+def main(json_path: str, output_csv: str):
     """主函数 - 演示用法"""
-    
-    json_path = 'river_strategy.json'
     
     # 1. 先分析树结构统计
     print("=" * 60)
@@ -830,7 +828,6 @@ def main():
     parser = StrategyOnlyParser(json_path, config_path=config_path)
     
     # 导出为CSV（使用固定字段，避免动态列问题）
-    output_csv = 'river_lines.csv'
     count = 0
     fieldnames = ['path', 'player', 'hand', 'actions', 'probs', 'board', 'ip_range', 'oop_range', 'ev', 'equity']
     
@@ -895,5 +892,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # json_path = 'results/AcTc6c.json'
+    # output_csv = 'AcTc6c.csv'
+    json_path = 'results/river_strategy.json'
+    output_csv = 'river_strategy.csv'
+    main(json_path, output_csv)
 
