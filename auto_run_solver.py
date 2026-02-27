@@ -374,8 +374,8 @@ def run_solver_with_retry(
     
     while retries <= max_retries:
         if retries > 0:
-            print(f"  [重试 {retries}/{max_retries}] 等待 5 秒后重试...")
-            time.sleep(5)
+            print(f"  [重试 {retries}/{max_retries}] 等待 1 秒后重试...")
+            time.sleep(1)
         
         start_time = time.time()
         
@@ -635,7 +635,7 @@ def main():
     parser.add_argument("--thread-num", type=int, default=-1, help="线程数（默认: -1，使用所有核心）")
     parser.add_argument("--accuracy", type=float, default=1, help="精度（默认: 1）")
     parser.add_argument("--max-iteration", type=int, default=300, help="最大迭代次数（默认: 300）")
-    parser.add_argument("--print-interval", type=int, default=30, help="打印间隔（默认: 30）")
+    parser.add_argument("--print-interval", type=int, default=10, help="打印间隔（默认: 10）")
     parser.add_argument("--max-retries", type=int, default=3, help="最大重试次数（默认: 3）")
     parser.add_argument("--interactive", "-i", action="store_true", help="交互模式，开始前等待确认（默认跳过确认）")
     
