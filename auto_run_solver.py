@@ -310,7 +310,7 @@ def generate_config_file(
     thread_num: int = -1,
     accuracy: float = 1,
     max_iteration: int = 300,
-    print_interval: int = 60,
+    print_interval: int = 10,
     range_oop: str = None,
     range_ip: str = None
 ) -> Path:
