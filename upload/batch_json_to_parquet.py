@@ -56,7 +56,7 @@ def convert_and_delete(json_path: Path, dry_run: bool = False) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Batch JSON -> Parquet, delete JSON after each")
-    parser.add_argument("dir", nargs="?", default=".", help="Directory with JSON files")
+    parser.add_argument("dir", nargs="?", default="results", help="Directory with JSON files")
     parser.add_argument("--dry-run", action="store_true", help="Preview only, do not convert or delete")
     args = parser.parse_args()
 

@@ -36,7 +36,7 @@ REPO_ID = "Tsumugii/gto-srp-100bb-v1"
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Upload parquet files to HF with Xet")
-    parser.add_argument("dir", nargs="?", default=".", help="Directory with parquet files")
+    parser.add_argument("dir", nargs="?", default="results", help="Directory with parquet files")
     parser.add_argument("--dry-run", action="store_true", help="Preview only, no upload")
     args = parser.parse_args()
 
