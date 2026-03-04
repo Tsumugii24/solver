@@ -16,6 +16,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).parent.resolve()
 # 求解器路径（根据操作系统选择）
 IS_WINDOWS = sys.platform == "win32"
+IS_DARWIN = sys.platform == "darwin"
 if IS_WINDOWS:
     SOLVER_EXE = str(SCRIPT_DIR / "build" / "console_solver.exe")
 else:
@@ -63,8 +64,8 @@ def auto_compile_solver() -> bool:
                 capture_output=False
             )
         else:
-            # Linux/macOS: 使用 bash 执行 compile.sh
-            compile_script = SCRIPT_DIR / "compile.sh"
+            # Linux: compile.sh, macOS: compile_macos.sh
+            compile_script = SCRIPT_DIR / ("compile_macos.sh" if IS_DARWIN else "compile.sh")
             if not compile_script.exists():
                 print(f"[错误] 编译脚本不存在: {compile_script}")
                 return False

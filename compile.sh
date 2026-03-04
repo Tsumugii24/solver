@@ -27,7 +27,7 @@ echo "[3/4] Configuring CMake..."
 cmake .. -DCMAKE_BUILD_TYPE=Release
 
 echo "[4/4] Building..."
-make -j$(nproc) install
+make -j"$NPROC" install
 
 echo ""
 echo "=========================================="
