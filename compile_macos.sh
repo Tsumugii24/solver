@@ -61,6 +61,9 @@ fi
 echo "[2/3] 配置 CMake..."
 mkdir -p build
 cd build
+# libomp 为 keg-only，需显式指定路径供 FindOpenMP 使用
+export LDFLAGS="-L$(brew --prefix libomp)/lib"
+export CPPFLAGS="-I$(brew --prefix libomp)/include"
 cmake .. -DCMAKE_BUILD_TYPE=Release
 
 echo "[3/3] 编译..."
