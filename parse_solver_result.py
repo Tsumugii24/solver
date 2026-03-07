@@ -1,6 +1,6 @@
 """
 德州扑克CFR策略树解析器
-将树结构解析成扁平化的数据线（每条数据线代表一条完整的决策路径）
+从 Parquet 文件解析策略树，生成扁平化数据线（每条数据线代表一条完整的决策路径）
 """
 
 import json
@@ -8,6 +8,23 @@ import csv
 from typing import Generator, Dict, Any, List, Optional
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+
+try:
+    import pyarrow.parquet as pq
+except ImportError:
+    pq = None  # type: ignore
+
+
+def _load_from_parquet(parquet_path: Path) -> Dict[str, Any]:
+    """从 Parquet 文件加载策略树数据（格式与原 JSON 一致）"""
+    if pq is None:
+        raise RuntimeError("请安装 pyarrow: pip install pyarrow")
+    table = pq.read_table(parquet_path)
+    records = table.to_pylist()
+    if not records:
+        raise ValueError(f"Parquet 文件为空: {parquet_path}")
+    raw = records[0].get("data")
+    return json.loads(raw) if isinstance(raw, str) else raw
 
 
 @dataclass
@@ -40,22 +57,21 @@ class CFRTreeParser:
     遍历整个树结构，生成所有可能的决策路径
     """
     
-    def __init__(self, json_path: str):
+    def __init__(self, parquet_path: str):
         """
         初始化解析器
-        
+
         Args:
-            json_path: JSON文件路径
+            parquet_path: Parquet 文件路径
         """
-        self.json_path = Path(json_path)
+        self.parquet_path = Path(parquet_path)
         self.data = None
         self.total_lines = 0
-        
+
     def load(self) -> None:
-        """加载JSON文件"""
-        print(f"正在加载文件: {self.json_path}")
-        with open(self.json_path, 'r', encoding='utf-8') as f:
-            self.data = json.load(f)
+        """加载 Parquet 文件"""
+        print(f"正在加载文件: {self.parquet_path}")
+        self.data = _load_from_parquet(self.parquet_path)
         print("文件加载完成!")
         
     def parse_all_lines(self) -> Generator[ActionLine, None, None]:
@@ -501,16 +517,16 @@ class StrategyOnlyParser:
     每条数据线包含：路径 + 手牌 + 策略概率
     这是最常用的输出格式
     """
-    
-    def __init__(self, json_path: str, config_path: Optional[str] = None):
+
+    def __init__(self, parquet_path: str, config_path: Optional[str] = None):
         """
         初始化解析器
-        
+
         Args:
-            json_path: JSON文件路径
-            config_path: 配置文件路径（可选，用于读取初始preflop range和board）
+            parquet_path: Parquet 文件路径
+            config_path: 配置文件路径（可选，用于读取初始 preflop range 和 board）
         """
-        self.json_path = Path(json_path)
+        self.parquet_path = Path(parquet_path)
         self.config_path = Path(config_path) if config_path else None
         self.data = None
         self.initial_ranges = {'ip': {}, 'oop': {}}
@@ -538,11 +554,10 @@ class StrategyOnlyParser:
             print(f"  OOP: {len(oop_range_raw)}手牌类型 -> {len(self.initial_ranges['oop'])}具体组合")
         
     def load(self) -> None:
-        print(f"正在加载文件: {self.json_path}")
-        with open(self.json_path, 'r', encoding='utf-8') as f:
-            self.data = json.load(f)
+        print(f"正在加载文件: {self.parquet_path}")
+        self.data = _load_from_parquet(self.parquet_path)
         print("文件加载完成!")
-        
+
     def parse(self) -> Generator[Dict[str, Any], None, None]:
         """
         解析策略数据线
@@ -717,20 +732,18 @@ class StrategyOnlyParser:
     
 
 
-def analyze_tree_stats(json_path: str) -> Dict[str, Any]:
+def analyze_tree_stats(parquet_path: str) -> Dict[str, Any]:
     """
     分析树结构的统计信息
-    
+
     Args:
-        json_path: JSON文件路径
-        
+        parquet_path: Parquet 文件路径
+
     Returns:
         统计信息字典
     """
     print("正在分析树结构...")
-    
-    with open(json_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    data = _load_from_parquet(Path(parquet_path))
         
     stats = {
         'total_action_nodes': 0,
@@ -777,14 +790,14 @@ def analyze_tree_stats(json_path: str) -> Dict[str, Any]:
     return stats
 
 
-def main(json_path: str, output_csv: str):
+def main(parquet_path: str, output_csv: str):
     """主函数 - 演示用法"""
-    
+
     # 1. 先分析树结构统计
     print("=" * 60)
     print("步骤1: 分析树结构")
     print("=" * 60)
-    stats = analyze_tree_stats(json_path)
+    stats = analyze_tree_stats(parquet_path)
     print(f"\n统计信息:")
     print(f"  - Action节点数: {stats['total_action_nodes']:,}")
     print(f"  - Chance节点数: {stats['total_chance_nodes']:,}")
@@ -801,19 +814,15 @@ def main(json_path: str, output_csv: str):
     
     # 尝试找到对应的配置文件
     config_path = None
-    json_stem = Path(json_path).stem
-    
+    stem = Path(parquet_path).stem  # 如 AcTc6c, river_strategy
+
     # 尝试多种配置文件命名规则
     possible_configs = [
-        # result_XX_XXX.json -> configs/config_XX_XXX.txt
-        Path('configs') / (json_stem.replace('result_', 'config_') + '.txt'),
-        # river_strategy.json -> solver/configs/river.txt
-        Path('solver/configs') / (json_stem.replace('_strategy', '') + '.txt'),
-        # river_strategy.json -> configs/river.txt
-        Path('configs') / (json_stem.replace('_strategy', '') + '.txt'),
-        # 直接匹配 json_stem.txt
-        Path('solver/configs') / (json_stem + '.txt'),
-        Path('configs') / (json_stem + '.txt'),
+        Path('configs') / (stem.replace('result_', 'config_') + '.txt'),
+        Path('solver/configs') / (stem.replace('_strategy', '') + '.txt'),
+        Path('configs') / (stem.replace('_strategy', '') + '.txt'),
+        Path('solver/configs') / (stem + '.txt'),
+        Path('configs') / (stem + '.txt'),
     ]
     
     for possible_config in possible_configs:
@@ -823,9 +832,9 @@ def main(json_path: str, output_csv: str):
             break
     
     if not config_path:
-        print("未找到对应的配置文件，将不包含初始range信息")
-    
-    parser = StrategyOnlyParser(json_path, config_path=config_path)
+        print("未找到对应的配置文件，将不包含初始 range 信息")
+
+    parser = StrategyOnlyParser(parquet_path, config_path=config_path)
     
     # 导出为CSV（使用固定字段，避免动态列问题）
     count = 0
@@ -892,9 +901,12 @@ def main(json_path: str, output_csv: str):
 
 
 if __name__ == '__main__':
-    # json_path = 'results/AcTc6c.json'
-    # output_csv = 'AcTc6c.csv'
-    json_path = 'results/river_strategy.json'
-    output_csv = 'river_strategy.csv'
-    main(json_path, output_csv)
+    import argparse
+    parser = argparse.ArgumentParser(description="从 Parquet 解析 CFR 策略树并导出 CSV")
+    parser.add_argument("parquet", nargs="?", default="cache/river_strategy.parquet", help="Parquet 文件路径")
+    parser.add_argument("-o", "--output", type=str, default=None, help="输出 CSV 路径（默认: 与 parquet 同名的 .csv）")
+    args = parser.parse_args()
+    parquet_path = args.parquet
+    output_csv = args.output or str(Path(parquet_path).with_suffix(".csv"))
+    main(parquet_path, output_csv)
 

@@ -5,6 +5,11 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
+try:
+    import pyarrow.parquet as pq
+except ImportError:
+    pq = None  # type: ignore
+
 # Add the current directory to sys.path to allow importing from parse_solver_result
 # Assuming this script is in solver/ and parse_solver_result.py is also in solver/
 current_dir = Path(__file__).parent
@@ -17,6 +22,23 @@ except ImportError:
     print("Warning: Could not import helper functions from parse_solver_result.py")
     def parse_config(path): return {'board': '', 'ip_range': {}, 'oop_range': {}}
     def _expand_range_to_hands(r, b): return r
+
+
+def _load_data(path: Path) -> Dict[str, Any]:
+    """从 JSON 或 Parquet 文件加载策略树数据"""
+    path = Path(path)
+    if path.suffix.lower() == '.parquet':
+        if pq is None:
+            raise RuntimeError("请安装 pyarrow: pip install pyarrow")
+        table = pq.read_table(path)
+        records = table.to_pylist()
+        if not records:
+            raise ValueError(f"Parquet 文件为空: {path}")
+        raw = records[0].get("data")
+        return json.loads(raw) if isinstance(raw, str) else raw
+    else:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
 
 
 def calc_pot_along_path(path_actions: List[str], initial_pot: float, effective_stack: float) -> Tuple[float, float, float]:
@@ -79,8 +101,9 @@ def calc_pot_along_path(path_actions: List[str], initial_pot: float, effective_s
 
 
 class ActionLineQuery:
-    def __init__(self, json_path: str, config_path: Optional[str] = None):
-        self.json_path = Path(json_path)
+    def __init__(self, data_path: str, config_path: Optional[str] = None):
+        """data_path: JSON 或 Parquet 文件路径"""
+        self.data_path = Path(data_path)
         self.config_path = Path(config_path) if config_path else None
         self.data = None
         self.initial_ranges = {'ip': {}, 'oop': {}}
@@ -113,10 +136,10 @@ class ActionLineQuery:
                 print(f"Error loading config: {e}")
 
     def load(self):
-        print(f"Loading JSON: {self.json_path}")
-        with open(self.json_path, 'r', encoding='utf-8') as f:
-            self.data = json.load(f)
-        print("JSON loaded.")
+        fmt = "Parquet" if self.data_path.suffix.lower() == '.parquet' else "JSON"
+        print(f"Loading {fmt}: {self.data_path}")
+        self.data = _load_data(self.data_path)
+        print(f"{fmt} loaded.")
 
     def _parse_action_line(self, action_line_str: str) -> List[str]:
         """解析动作路径字符串为列表"""
@@ -285,8 +308,8 @@ class ActionLineQuery:
         """获取初始 board 的牌数"""
         if self.board:
             return len([c.strip() for c in self.board.split(',') if c.strip()])
-        # 从 JSON 文件名推断：AcTc6c = 3张(flop), AcTc6c6h = 4张(turn)
-        stem = self.json_path.stem
+        # 从文件名推断：AcTc6c = 3张(flop), AcTc6c6h = 4张(turn)
+        stem = self.data_path.stem
         count = 0
         i = 0
         ranks = set('23456789TJQKAtjqka')
@@ -540,21 +563,20 @@ class ActionLineQuery:
             print(f"Value: {node.get('value')}")
 
 
-def generate_random_action_line(json_file: str) -> str:
+def generate_random_action_line(data_file: str) -> str:
     """
     随机生成一条从 ROOT 到终端节点前最后一个 action_node 的 action line
-    
+
     随机走完整棵树直到 terminal，然后返回最后一个 action_node 的路径，
     确保该路径一定能查到策略数据。
-    
+
     Args:
-        json_file: JSON 文件路径
-    
+        data_file: JSON 或 Parquet 文件路径
+
     Returns:
         action line 字符串，如 "ROOT, BET 2, RAISE 7, CALL, DEAL: 6h, BET 10"
     """
-    with open(json_file, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    data = _load_data(Path(data_file))
     
     path = []
     current_node = data
@@ -595,13 +617,14 @@ def generate_random_action_line(json_file: str) -> str:
     return "ROOT, " + ", ".join(final_path) if final_path else "ROOT"
 
 
-def _auto_detect_config(json_file: str) -> Optional[str]:
-    """自动查找配置文件"""
-    json_stem = Path(json_file).stem
+def _auto_detect_config(data_file: str) -> Optional[str]:
+    """自动查找配置文件（支持 JSON 或 Parquet 文件名）"""
+    stem = Path(data_file).stem
+    data_path = Path(data_file)
     candidates = [
-        Path('solver/configs') / (json_stem + '.txt'),
-        Path('configs') / (json_stem + '.txt'),
-        Path(json_file).parent / (json_stem + '.txt'),
+        Path('solver/configs') / (stem + '.txt'),
+        Path('configs') / (stem + '.txt'),
+        data_path.parent / (stem + '.txt'),
         # docs 目录下的通用配置
         Path('docs/flop_config.txt'),
         Path('docs/turn_config.txt'),
@@ -613,9 +636,9 @@ def _auto_detect_config(json_file: str) -> Optional[str]:
     return None
 
 
-def _make_csv_filename(json_file: str, action_line: str) -> str:
-    """根据 JSON 文件名和 action line 自动生成 CSV 文件名"""
-    stem = Path(json_file).stem
+def _make_csv_filename(data_file: str, action_line: str) -> str:
+    """根据文件名和 action line 自动生成 CSV 文件名"""
+    stem = Path(data_file).stem
     # "ROOT, CHECK, CHECK, DEAL: 6h" -> "CHECK_CHECK_DEAL-6h"
     parts = []
     for a in action_line.replace("ROOT", "").split(","):
@@ -628,28 +651,28 @@ def _make_csv_filename(json_file: str, action_line: str) -> str:
     return f"{stem}_{suffix}.csv"
 
 
-def main(json_file: str, action_line: str = None, hand: str = None, output_csv: str = None,
+def main(data_file: str, action_line: str = None, hand: str = None, output_csv: str = None,
          random_line: bool = False):
     """
     主函数
-    
+
     Args:
-        json_file: JSON 文件路径
+        data_file: JSON 或 Parquet 文件路径
         action_line: action line 字符串，使用绝对值（如 "ROOT, BET 2, RAISE 7, CALL"）
         hand: 指定手牌（如 '4h5h'），'random' 则随机选，None 则导出整个节点
         output_csv: 输出 CSV 文件名
         random_line: 是否随机生成 action line
     """
-    config_path = _auto_detect_config(json_file)
+    config_path = _auto_detect_config(data_file)
     if config_path:
         print(f"Auto-detected config: {config_path}")
 
     # 如果需要随机生成 action line
     if random_line or action_line is None:
-        action_line = generate_random_action_line(json_file)
+        action_line = generate_random_action_line(data_file)
         print(f"Generated random action line: {action_line}")
 
-    querier = ActionLineQuery(json_file, config_path)
+    querier = ActionLineQuery(data_file, config_path)
 
     # 如果 hand='random'，先导航到节点再随机选一个手牌
     if hand == 'random':
@@ -676,20 +699,21 @@ def main(json_file: str, action_line: str = None, hand: str = None, output_csv: 
         querier.query_and_export(action_line, output_csv)
     else:
         # 默认：导出 CSV
-        output_csv = _make_csv_filename(json_file, action_line)
+        output_csv = _make_csv_filename(data_file, action_line)
         querier.query_and_export(action_line, output_csv)
 
 
 if __name__ == "__main__":
-    json_file = 'results/AcTc6c.json'
-    
-    # 示例 1: 手动指定 action line（使用 JSON 中的绝对值）
+    # 支持 JSON 或 Parquet
+    data_file = 'cache/Ac2c2d.parquet'  # 或 'results/AcTc6c.json'
+
+    # 示例 1: 手动指定 action line（使用绝对值）
     # action_line = 'ROOT, BET 2, RAISE 7, RAISE 15, CALL, DEAL: 6h, BET 20'
     # hand = '4h5h'
-    # main(json_file, action_line, hand=hand)
-    
+    # main(data_file, action_line, hand=hand)
+
     # 示例 2: 随机生成 action line，导出 CSV
-    # main(json_file, random_line=True)
-    
+    # main(data_file, random_line=True)
+
     # 当前运行：随机生成 action line + 随机手牌
-    main(json_file, random_line=True, hand='random')
+    main(data_file, random_line=True, hand='random')

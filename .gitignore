@@ -3,6 +3,7 @@
 .idea/
 .DS_Store
 results/
+cache/
 build/
 install/
 _pycache_/
