@@ -8,7 +8,6 @@
 
 用法:
   python interactive_strategy.py cache/Ac2c2d.parquet
-  python interactive_strategy.py results/AcTc6c.json
 """
 
 import argparse
@@ -551,9 +550,10 @@ def run_interactive(data_file: str) -> None:
                 if export_result and run_solver:
                     config_path, dump_name = export_result
                     print(f"\n[FLOP→TURN] 正在运行 turn 解算...")
-                    result = run_solver(str(Path(config_path).resolve()))
+                    output_dir = str(SOLVER_SCRIPT_DIR / "cache" / "results")
+                    result = run_solver(str(Path(config_path).resolve()), output_dir=output_dir)
                     if result.get('success'):
-                        turn_json_path = SOLVER_SCRIPT_DIR / "results" / dump_name
+                        turn_json_path = SOLVER_SCRIPT_DIR / "cache" / "results" / dump_name
                         if turn_json_path.exists():
                             turn_data = _load_data(turn_json_path)
                             querier.data = turn_data
@@ -597,9 +597,10 @@ def run_interactive(data_file: str) -> None:
                 if export_result and run_solver:
                     config_path, dump_name = export_result
                     print(f"\n[TURN→RIVER] 正在运行 river 解算...")
-                    result = run_solver(str(Path(config_path).resolve()))
+                    output_dir = str(SOLVER_SCRIPT_DIR / "cache" / "results")
+                    result = run_solver(str(Path(config_path).resolve()), output_dir=output_dir)
                     if result.get('success'):
-                        river_json_path = SOLVER_SCRIPT_DIR / "results" / dump_name
+                        river_json_path = SOLVER_SCRIPT_DIR / "cache" / "results" / dump_name
                         if river_json_path.exists():
                             river_data = _load_data(river_json_path)
                             querier.data = river_data

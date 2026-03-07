@@ -218,7 +218,7 @@ def format_json_floats(input_file: str, output_file: str = None, precision: int 
         raise e
 
 
-def run_solver(config_file: str, mode: str = "holdem", post_process: bool = None) -> dict:
+def run_solver(config_file: str, mode: str = "holdem", post_process: bool = None, output_dir: str = None) -> dict:
     """
     运行单个配置文件
     
@@ -226,6 +226,7 @@ def run_solver(config_file: str, mode: str = "holdem", post_process: bool = None
         config_file: 配置文件路径
         mode: 游戏模式 (holdem 或 shortdeck)
         post_process: 是否进行后处理（格式化浮点数），默认使用全局配置 POST_PROCESS
+        output_dir: 结果输出目录，默认 RESULTS_DIR (results)
         
     Returns:
         运行结果字典
@@ -238,6 +239,8 @@ def run_solver(config_file: str, mode: str = "holdem", post_process: bool = None
     # 检查求解器（如果不存在则自动编译）
     if not ensure_solver_exists():
         return {"success": False, "error": f"求解器不可用: {SOLVER_EXE}"}
+    
+    results_dir = output_dir if output_dir is not None else RESULTS_DIR
     
     # 构建命令
     cmd = [SOLVER_EXE, "-i", config_file, "-r", RESOURCE_DIR, "-m", mode]
@@ -255,16 +258,16 @@ def run_solver(config_file: str, mode: str = "holdem", post_process: bool = None
         cmd = [SOLVER_EXE, "-i", config_file_abs, "-r", RESOURCE_DIR, "-m", mode]
         
         # 创建结果目录
-        Path(RESULTS_DIR).mkdir(exist_ok=True)
+        Path(results_dir).mkdir(parents=True, exist_ok=True)
         
-        # 运行求解器（工作目录设为results，结果文件会保存在那里）
+        # 运行求解器（工作目录为结果目录，JSON 会保存在那里）
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            cwd=RESULTS_DIR
+            cwd=results_dir
         )
         
         # 实时打印进度（不存储，CFR结果由求解器直接写入JSON文件）
@@ -288,7 +291,7 @@ def run_solver(config_file: str, mode: str = "holdem", post_process: bool = None
                             output_files.append(line.split(None, 1)[1])
                 
                 for output_file in output_files:
-                    json_file = Path(RESULTS_DIR) / output_file
+                    json_file = Path(results_dir) / output_file
                     if json_file.exists():
                         print(f"[后处理] 格式化浮点数: {json_file.name}")
                         try:
