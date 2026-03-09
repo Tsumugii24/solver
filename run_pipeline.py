@@ -150,9 +150,18 @@ def _ensure_hf_logged_in() -> bool:
                 print(f"[错误] HF 登录失败: {e}")
                 return False
         else:
-            print("[错误] 未登录 Hugging Face，且未设置 HF_TOKEN 环境变量")
-            print("  请运行: huggingface-cli login  或设置 HF_TOKEN")
-            return False
+            print("[提示] 未登录 Hugging Face，且未设置 HF_TOKEN 环境变量")
+            print("  请在此输入您的 Hugging Face Token（或按 Enter 退出）:")
+            token = input("  HF Token: ").strip()
+            if not token:
+                print("[错误] 未提供 Token，退出")
+                return False
+            print("[HF] 正在使用输入的 Token 登录...")
+            try:
+                login(token=token)
+            except Exception as e:
+                print(f"[错误] HF 登录失败: {e}")
+                return False
 
     try:
         api = HfApi(token=token)
