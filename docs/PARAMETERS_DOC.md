@@ -325,21 +325,27 @@ equity = win_prob + tie_prob / 2
 
 | 值 | 导出内容 |
 |----|----------|
-| `1` | 仅导出 Flop（翻牌圈）策略 |
-| `2` | 导出 Flop + Turn（翻牌圈 + 转牌圈）策略 |
+| `1` | 仅导出 Flop（翻牌圈）策略 + 下一 street（Turn）首个节点的 reach_probs |
+| `2` | 导出 Flop + Turn（翻牌圈 + 转牌圈）策略 + River 首个节点的 reach_probs |
 | `3` | 导出 Flop + Turn + River（完整三条街）策略 |
 
 **源码参考** (`PCfrSolver.cpp`):
 ```cpp
 void PCfrSolver::reConvertJson(..., int depth, int max_depth, ...) {
-    if(depth >= max_depth) return;  // 达到最大深度时停止导出
+    if(depth >= max_depth) {
+        // 若为下一 street 的首个 ACTION 节点，仅导出 reach_probs（action 执行后的更新）
+        if(node->getType() == ACTION) { /* 导出 ranges */ }
+        return;
+    }
     ...
 }
 ```
 
 每经过一个 chance node（发牌节点，即发 turn 或 river 牌），`depth` 增加 1。`dump_rounds` 作为 `max_depth` 参数控制递归导出的深度。
 
-> 💡 **提示**: 较大的 `dump_rounds` 值会显著增加输出文件大小。如果只需要分析翻牌圈策略，设置为 `1` 即可。
+当达到深度限制时，若下一 street 的首个节点为 ACTION 节点，会额外导出该节点的 `reach_probs`（即 flop 末节点执行 action 后的 reach 更新），以 `node_type: "action_node"` 且 `reach_probs_only: true` 标记，仅包含 `ranges`（ip_range/oop_range），不包含 strategy、evs、children 等。
+
+> 💡 **提示**: 较大的 `dump_rounds` 值会显著增加输出文件大小。如果只需要分析翻牌圈策略及 action 后的 reach 更新，设置为 `1` 即可。
 
 ---
 

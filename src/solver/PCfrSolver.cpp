@@ -1016,7 +1016,42 @@ void PCfrSolver::exchangeRangeProbs(json& range_data,int rank1,int rank2,shared_
 }
 
 void PCfrSolver::reConvertJson(const shared_ptr<GameTreeNode>& node,json& strategy,string key,int depth,int max_depth,vector<string> prefix,int deal,vector<vector<int>> exchange_color_list,const vector<vector<float>>& reach_probs) {
-    if(depth >= max_depth) return;
+    if(depth >= max_depth) {
+        // 达到深度限制时，若为下一 street 的首个 ACTION 节点，仅导出 reach_probs（action 执行后的range更新）
+        if(node->getType() == GameTreeNode::GameTreeNodeType::ACTION) {
+            json* retval;
+            if(key != ""){
+                strategy[key] = json();
+                retval = &(strategy[key]);
+            }else{
+                retval = &strategy;
+            }
+            (*retval)["node_type"] = "action_node";
+            (*retval)["reach_probs_only"] = true;
+            json range_json;
+            for(int p = 0; p < 2; p++) {
+                if(reach_probs[p].size() > 0) {
+                    json range_data;
+                    vector<PrivateCards>& player_cards = this->ranges[p];
+                    std::size_t hand_count = std::min(reach_probs[p].size(), player_cards.size());
+                    for(std::size_t hand_id = 0; hand_id < hand_count; hand_id++) {
+                        float rp = reach_probs[p][hand_id];
+                        float rounded_rp = round(rp * 1000.0f) / 1000.0f;
+                        if(rounded_rp > 0) {
+                            range_data[player_cards[hand_id].toString()] = rounded_rp;
+                        }
+                    }
+                    if(p == 0) {
+                        range_json["ip_range"] = std::move(range_data);
+                    } else {
+                        range_json["oop_range"] = std::move(range_data);
+                    }
+                }
+            }
+            (*retval)["ranges"] = std::move(range_json);
+        }
+        return;
+    }
     if(node->getType() == GameTreeNode::GameTreeNodeType::ACTION) {
         json* retval;
         if(key != ""){
