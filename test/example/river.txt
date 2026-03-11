@@ -1,4 +1,4 @@
-set_pot 11
+set_pot 20
 set_effective_stack 100
 set_board Ac,Tc,6c,6h,4c
 set_range_oop 2d2c:0.127,2h2c:0.007,2s2c:0.267,2s2d:0.001,3d3c:0.228,3h3c:0.218,3s3c:0.351,3s3d:0.002,3s3h:0.002,4d4c:0.409,4h4c:0.409,4h4d:0.456,4s4c:0.443,4s4d:0.321,4s4h:0.388,5c4c:0.251,5d4d:0.833,5d5c:0.683,5h4h:1.000,5h5c:0.803,5h5d:0.736,5s4s:0.999,5s5c:0.684,5s5d:0.001,5s5h:0.489,6h5h:0.137,6s6h:0.133,7d7c:1.000,7h6h:0.126,7h7c:1.000,7h7d:0.908,7s7c:0.961,7s7d:0.742,7s7h:0.898,8c7c:0.582,8d8c:0.867,8h8c:0.899,8h8d:0.640,8s8c:0.760,8s8d:0.657,8s8h:0.748,9c8c:0.306,9d9c:0.567,9h9c:0.666,9h9d:0.845,9s8s:0.116,9s9c:0.716,9s9d:0.971,9s9h:0.996,Ad2d:0.673,Ad3d:0.701,Ad4d:0.572,Ad5d:0.427,Ad7d:0.636,Ad8d:0.657,Ad9d:0.373,AdJc:0.202,AdJd:0.320,AdJh:0.361,AdJs:0.465,AdKh:0.009,AdKs:0.026,AdQc:0.211,AdQd:0.218,AdQh:0.259,AdQs:0.381,AdTd:0.032,AdTh:0.094,AdTs:0.005,Ah2h:0.759,Ah3h:0.752,Ah4h:0.564,Ah5h:0.530,Ah6h:0.128,Ah7h:0.721,Ah8h:0.720,Ah9h:0.420,AhJc:0.160,AhJd:0.317,AhJh:0.375,AhJs:0.453,AhKd:0.005,AhKs:0.033,AhQc:0.167,AhQd:0.247,AhQh:0.296,AhQs:0.415,AhTd:0.020,AhTh:0.033,AhTs:0.009,As2s:0.695,As3s:0.708,As4s:0.536,As5s:0.472,As6s:0.348,As7s:0.668,As8s:0.647,As9s:0.486,AsJc:0.334,AsJd:0.388,AsJh:0.442,AsJs:0.529,AsKd:0.003,AsKh:0.020,AsQc:0.417,AsQd:0.293,AsQh:0.351,AsQs:0.520,AsTd:0.078,AsTh:0.153,AsTs:0.062,Jc9c:0.075,Jd9d:1.000,JdJc:0.483,JdTd:0.425,Jh9h:1.000,JhJc:0.505,JhJd:0.557,JhTh:0.535,Js9s:1.000,JsJc:0.532,JsJd:0.656,JsJh:0.656,JsTs:0.488,Kc5c:0.001,Kc7c:0.115,Kc8c:0.049,Kc9c:0.018,KcJc:0.004,KcQc:0.076,KcTd:0.030,KcTh:0.176,KcTs:0.214,Kd2d:1.000,Kd3d:1.000,Kd4d:1.000,Kd5d:1.000,Kd7d:1.000,Kd8d:1.000,Kd9d:1.000,KdJd:0.343,KdJh:0.524,KdJs:0.604,KdQd:0.369,KdQh:0.568,KdQs:0.719,KdTd:0.519,KdTh:0.684,KdTs:0.648,Kh2h:1.000,Kh3h:1.000,Kh4h:1.000,Kh5h:1.000,Kh6h:0.161,Kh7h:1.000,Kh8h:1.000,Kh9h:1.000,KhJd:0.502,KhJh:0.642,KhJs:0.695,KhQd:0.572,KhQh:0.804,KhQs:0.902,KhTd:0.734,KhTh:0.705,KhTs:0.754,Ks2s:1.000,Ks3s:1.000,Ks4s:1.000,Ks5s:1.000,Ks6s:0.004,Ks7s:1.000,Ks8s:1.000,Ks9s:1.000,KsJd:0.658,KsJh:0.824,KsJs:0.676,KsQc:0.002,KsQd:0.597,KsQh:0.766,KsQs:0.767,KsTd:0.643,KsTh:0.722,KsTs:0.550,Qc9c:0.173,QcJc:0.278,Qd9d:1.000,QdJd:0.003,QdJh:0.116,QdJs:0.150,QdQc:0.229,QdTd:0.327,Qh9h:1.000,QhJd:0.077,QhJh:0.176,QhJs:0.212,QhQc:0.239,QhQd:0.223,QhTh:0.419,Qs9s:1.000,QsJd:0.229,QsJh:0.318,QsJs:0.398,QsQc:0.249,QsQd:0.248,QsQh:0.249,QsTs:0.418,Td9d:0.579,Th9h:0.586,ThTd:0.297,Ts9s:0.706,TsTd:0.395,TsTh:0.381
@@ -18,7 +18,6 @@ set_accuracy 1
 set_max_iteration 300
 set_print_interval 30
 set_use_isomorphism 1
-set_enable_equity 1
 set_enable_range 1
 start_solve
 set_dump_rounds 1

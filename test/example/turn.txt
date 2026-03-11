@@ -25,8 +25,7 @@ set_accuracy 1
 set_max_iteration 300
 set_print_interval 30
 set_use_isomorphism 1
-set_enable_equity 1
 set_enable_range 1
 start_solve
-set_dump_rounds 2
+set_dump_rounds 1
 dump_result turn_strategy.json

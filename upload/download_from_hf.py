@@ -5,7 +5,7 @@
 用法:
   python download_from_hf.py AcAdAh AcAdKc
   python download_from_hf.py AcAdAh --repo Tsumugii/gto-srp-100bb-v1
-  python download_from_hf.py 1 2 3 --cards configs/cards.txt   # 按序号
+  python download_from_hf.py 1 2 3 --cards cards/cards.txt   # 按序号
 """
 
 import argparse
@@ -122,7 +122,7 @@ def main() -> None:
         epilog="""
 示例:
   python download_from_hf.py AcAdAh AcAdKc
-  python download_from_hf.py 1 2 3 --cards configs/cards.txt
+  python download_from_hf.py 1 2 3 --cards cards/cards.txt
   python download_from_hf.py AcAdAh --cache-dir ./my_cache
         """,
     )

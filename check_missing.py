@@ -26,8 +26,8 @@ except ImportError:
 
 # ==================== 配置 ====================
 SCRIPT_DIR = Path(__file__).parent.resolve()
-CONFIG_DIR = SCRIPT_DIR / "configs"
-CARDS_FILE = CONFIG_DIR / "cards.txt"
+CARDS_DIR = SCRIPT_DIR / "cards"
+CARDS_FILE = CARDS_DIR / "cards.txt"
 # =============================================
 
 
@@ -212,7 +212,7 @@ def main() -> None:
         print(f"[错误] {e}")
         sys.exit(1)
 
-    cards_file = CONFIG_DIR / args.cards_file
+    cards_file = CARDS_DIR / args.cards_file
     if not cards_file.exists():
         print(f"[错误] 牌面文件不存在: {cards_file}")
         sys.exit(1)

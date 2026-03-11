@@ -50,8 +50,8 @@ def _compress_indices(indices: list) -> str:
 
 def _get_total_boards() -> int:
     """获取牌面总数"""
-    from auto_run_solver import read_cards, CONFIG_DIR
-    cards_path = CONFIG_DIR / "cards.txt"
+    from auto_run_solver import read_cards, CARDS_FILE
+    cards_path = CARDS_FILE
     if not cards_path.exists():
         return 1755  # 默认
     boards = read_cards(cards_path)

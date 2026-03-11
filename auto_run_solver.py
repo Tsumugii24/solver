@@ -28,22 +28,21 @@ else:
     SOLVER_EXE = str(SCRIPT_DIR / "install" / "console_solver")
 # Resources 目录
 RESOURCE_DIR = str(SCRIPT_DIR / "resources")
-# 配置文件目录
-CONFIG_DIR = SCRIPT_DIR / "configs"
+# 全部牌面信息目录
+CARDS_DIR = SCRIPT_DIR / "cards"
 # 结果输出目录
 RESULTS_DIR = SCRIPT_DIR / "results"
-# 牌面文件路径（优先使用 txt）
-CARDS_FILE = CONFIG_DIR / "cards.txt"
-CARDS_EXCEL = CONFIG_DIR / "cards.xlsx"
+# 牌面信息文件
+CARDS_FILE = CARDS_DIR / "cards.txt"
 # 超时时间（秒）
 TIMEOUT = 7200  # 2小时
 # 最大重试次数
-MAX_RETRIES = 3
+MAX_RETRIES = 1
 # =============================================
 
 
-# ==================== 配置模板 ====================
-CONFIG_TEMPLATE = """set_pot {pot}
+# solving config
+CONFIG = """set_pot {pot}
 set_effective_stack {effective_stack}
 set_board {board}
 set_range_oop {range_oop}
@@ -76,16 +75,67 @@ set_accuracy {accuracy}
 set_max_iteration {max_iteration}
 set_print_interval {print_interval}
 set_use_isomorphism 1
-set_enable_equity 1
 set_enable_range 1
 start_solve
-set_dump_rounds 2
+set_dump_rounds 1
 dump_result {output_file}
 """
 
-# 默认 Range 配置
-DEFAULT_RANGE_OOP = "AQs:0.250,AJs:0.250,ATs:0.250,A9s,A8s,A7s,A6s,A5s,A4s:0.750,A3s:0.750,A2s:0.750,KQs:0.250,KJs:0.250,KTs:0.750,K9s:0.750,K8s,K7s,K6s,K5s,K4s,K3s,K2s,AQo:0.250,KQo:0.500,QJs:0.500,QTs:0.750,Q9s:0.750,Q8s,Q7s,Q6s,Q5s,Q4s,Q3s,Q2s,AJo:0.750,KJo,QJo,JTs:0.250,J9s:0.500,J8s,J7s,J6s,J5s,J4s,J3s,J2s,ATo:0.750,KTo,QTo,JTo,TT:0.250,T9s:0.750,T8s,T7s:0.984,T6s,T5s:0.250,T4s:0.250,T3s:0.250,T2s:0.250,A9o,K9o,Q9o,J9o,T9o,99:0.250,98s:0.750,97s,96s,95s:0.250,94s:0.250,93s:0.250,92s:0.250,A8o,98o:0.250,88,87s:0.750,86s,85s,84s:0.250,83s:0.250,82s:0.250,A7o,87o:0.250,77,76s:0.750,75s,74s:0.596,73s:0.250,72s:0.250,A6o,76o:0.250,66,65s:0.750,64s,63s:0.564,62s:0.250,A5o:0.750,65o:0.250,55,54s:0.750,53s,52s:0.552,A4o,54o:0.250,44:0.996,43s,42s:0.524,A3o,33,32s:0.250,A2o,22"
-DEFAULT_RANGE_IP = "AA,AKs,AQs,AJs,ATs,A9s,A8s,A7s,A6s,A5s,A4s,A3s,A2s,AKo,KK,KQs,KJs,KTs,K9s,K8s,K7s,K6s,K5s,K4s,K3s,K2s,AQo,KQo,QQ,QJs,QTs,Q9s,Q8s,Q7s,Q6s,Q5s,Q4s,Q3s,Q2s,AJo,KJo,QJo,JJ,JTs,J9s,J8s,J7s,J6s,J5s,J4s,J3s,J2s,ATo,KTo,QTo,JTo,TT,T9s,T8s,T7s,T6s,T5s,T4s,T3s,A9o,K9o,Q9o,J9o,T9o,99,98s,97s,96s,95s,A8o,98o:0.500,88,87s,86s,85s,84s,A7o,87o:0.500,77,76s,75s,74s,A6o,76o:0.500,66,65s,64s,A5o,65o:0.500,55,54s,53s,A4o,54o:0.500,44,43s,A3o,33,A2o,22"
+# preflop range config file
+RANGES_DIR = SCRIPT_DIR / "ranges"
+PREFLOP_RANGE_FILE = RANGES_DIR / "preflop.txt"
+
+
+def _load_preflop_ranges() -> Tuple[str, str]:
+    """load preflop range from ranges/preflop.txt, if file not found or format error, raise exception"""
+    if not PREFLOP_RANGE_FILE.exists():
+        raise FileNotFoundError(
+            f"preflop range config file not found: {PREFLOP_RANGE_FILE}\n"
+            f"   please create the file and fill in OOP_RANGE and IP_RANGE, example:\n"
+            f"    OOP_RANGE = \"AA,KK,...\"\n"
+            f"    IP_RANGE = \"AA,KK,...\""
+        )
+    oop, ip = "", ""
+    try:
+        with open(PREFLOP_RANGE_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key = key.strip().upper()
+                val = val.strip().strip('"\'')
+                if key == "OOP_RANGE":
+                    oop = val
+                elif key == "IP_RANGE":
+                    ip = val
+    except (OSError, UnicodeDecodeError) as e:
+        raise RuntimeError(
+            f"failed to read preflop range config file {PREFLOP_RANGE_FILE}: {e}\n"
+            f"   please check file permission and encoding"
+        ) from e
+
+    if not oop or not ip:
+        missing = []
+        if not oop:
+            missing.append("OOP_RANGE")
+        if not ip:
+            missing.append("IP_RANGE")
+        raise ValueError(
+            f"preflop range config file {PREFLOP_RANGE_FILE} is missing or empty: {', '.join(missing)}\n"
+            f"   please ensure the file contains:\n"
+            f"    OOP_RANGE = \"<range>\"\n"
+            f"    IP_RANGE = \"<range>\""
+        )
+    return oop, ip
+
+
+# default preflop range (load from preflop.txt, if missing or format error, raise exception)
+_oop, _ip = _load_preflop_ranges()
+DEFAULT_RANGE_OOP = _oop
+DEFAULT_RANGE_IP = _ip
 # =============================================
 
 
@@ -307,7 +357,7 @@ def generate_config_file(
     board: str,
     output_dir: Path,
     pot: int = 5,
-    effective_stack: int = 100,
+    effective_stack: int = 98,
     thread_num: int = -1,
     accuracy: float = 1,
     max_iteration: int = 300,
@@ -335,7 +385,7 @@ def generate_config_file(
     config_path = output_dir / f"{filename}.txt"
     output_file = f"{filename}.json"
     
-    config_content = CONFIG_TEMPLATE.format(
+    config_content = CONFIG.format(
         pot=pot,
         effective_stack=effective_stack,
         board=board,
@@ -654,7 +704,7 @@ def main():
         sys.exit(1)
     
     # 牌面文件路径
-    cards_path = CONFIG_DIR / args.file
+    cards_path = CARDS_DIR / args.file
     
     print("=" * 60)
     print("TexasSolver 自动批量求解")
@@ -723,7 +773,7 @@ def main():
             try:
                 config_file = generate_config_file(
                     board=board,
-                    output_dir=CONFIG_DIR,
+                    output_dir=CARDS_DIR,
                     pot=args.pot,
                     effective_stack=args.stack,
                     thread_num=args.thread_num,
