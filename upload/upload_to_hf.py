@@ -5,8 +5,8 @@
 目标: https://huggingface.co/datasets/{repo_id}
 
 用法:
-  python upload_to_hf.py [dir]
-  python upload_to_hf.py --dry-run [dir]
+  python upload_to_hf.py [dir] --repo-id <user_or_org/dataset_name>
+  python upload_to_hf.py --dry-run [dir] --repo-id <user_or_org/dataset_name>
 
 前置:
   pip install -U huggingface_hub
@@ -31,12 +31,10 @@ except ImportError:
     print("pip install -U huggingface_hub")
     sys.exit(1)
 
-REPO_ID = "Tsumugii/gto-srp-100bb-v1"
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Upload parquet files to HF with Xet")
     parser.add_argument("dir", nargs="?", default="results", help="Directory with parquet files")
+    parser.add_argument("--repo-id", required=True, help="Target HF dataset repo_id, e.g. user/dataset")
     parser.add_argument("--dry-run", action="store_true", help="Preview only, no upload")
     args = parser.parse_args()
 
@@ -51,7 +49,7 @@ def main() -> None:
         sys.exit(0)
 
     print(f"Found {len(parquets)} parquet files in {root}")
-    print(f"Target: https://huggingface.co/datasets/{REPO_ID}")
+    print(f"Target: https://huggingface.co/datasets/{args.repo_id}")
     print(f"HF_XET_HIGH_PERFORMANCE={os.environ.get('HF_XET_HIGH_PERFORMANCE', 'not set')}")
     if args.dry_run:
         print("\nDRY RUN - no upload")
@@ -63,7 +61,7 @@ def main() -> None:
             print(f"\nAttempt {attempt}/{MAX_RETRIES}")
             api.upload_large_folder(
                 folder_path=str(root),
-                repo_id=REPO_ID,
+                repo_id=args.repo_id,
                 repo_type="dataset",
                 allow_patterns="*.parquet",
             )

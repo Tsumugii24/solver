@@ -680,7 +680,7 @@ def main():
   # 自定义求解参数
   python auto_run_solver.py 1-10 --thread-num 8 --max-iteration 500
 
-  # 直接导出原生 Parquet
+  # 直接导出 Parquet
   python auto_run_solver.py 1-10 --dump-format parquet
         """
     )
