@@ -405,20 +405,20 @@ def main():
     has_remainder = last_batch_size > 0 and last_batch_size < batch_size and len(batches) > 1
 
     print("=" * 60)
-    print("自动化流水线: Solver → JSON/Parquet → Hugging Face")
+    print("Automatic Pipeline: Solver → Parquet Results → Upload to HuggingFace")
     print("=" * 60)
-    print(f"总任务: {len(indices)} 个牌面")
-    print(f"求解批次: {len(batches)}，每批最多 {batch_size} 个")
-    print(f"触发条件: results 下 JSON 或 Parquet 数量 >= {batch_size} 时切到后台处理+上传")
+    print(f"Total Tasks: {len(indices)} boards")
+    print(f"Solver Batches: {len(batches)}, max {batch_size} per batch")
+    print(f"Trigger Condition: When results count >= {batch_size}, move to background for processing and uploading")
     if has_remainder:
-        print(f"  （最后一批含 {last_batch_size} 个；结束时若有剩余 JSON 也会转换）")
-    print(f"结果目录: {RESULTS_DIR}")
+        print(f"  (Last batch has {last_batch_size} boards; any remaining JSON will be converted at the end)")
+    print(f"Results Directory: {RESULTS_DIR}")
     if args.dry_run:
-        print("\n[DRY RUN] 仅预览，不执行")
+        print("\n[DRY RUN] Only preview, no execution")
         for i, batch in enumerate(batches, 1):
             expr = _compress_indices(batch)
             n = len(batch)
-            suffix = f" ({n} 个)" if has_remainder and i == len(batches) else ""
+            suffix = f" ({n} boards)" if has_remainder and i == len(batches) else ""
             print(f"  Batch {i}: {expr}{suffix}")
         sys.exit(0)
 
@@ -428,26 +428,26 @@ def main():
     if not args.no_upload:
         if not repo_id:
             repo_id = _prompt_repo_id()
-        print(f"[HF] 目标仓库: https://huggingface.co/datasets/{repo_id}")
+        print(f"[HF] Target Repository: https://huggingface.co/datasets/{repo_id}")
         if not _ensure_hf_logged_in():
-            print("[错误] 无法上传：请先登录 HF 或设置 HF_TOKEN")
+            print("[Error] Unable to upload: Please login to HF or set HF_TOKEN")
             sys.exit(1)
 
     upload_manager = AsyncUploadManager(enabled=not args.no_upload, repo_id=repo_id)
 
     if args.convert_only:
-        print("\n[模式] 仅处理现有结果并上传（不跑 solver）")
+        print("\n[Mode] Only process existing results and upload (no solver)")
         if _count_json() == 0 and _count_parquet() == 0:
-            print("[提示] results 目录下没有 JSON 或 Parquet 文件")
+            print("[提示] results directory has no JSON or Parquet files")
             sys.exit(0)
         _do_convert_and_upload(not args.no_upload, repo_id=repo_id)
-        print("\n[完成]")
+        print("\n[Completed]")
         sys.exit(0)
 
     for i, batch in enumerate(batches, 1):
         expr = _compress_indices(batch)
         print(f"\n{'='*60}")
-        print(f"[Batch {i}/{len(batches)}] 求解: {expr}")
+        print(f"[Batch {i}/{len(batches)}] Solving: {expr}")
         print("=" * 60)
 
         # 1. Run solver
@@ -460,41 +460,41 @@ def main():
             "--dump-format", args.dump_format,
         ]
         if not _run(solver_cmd):
-            print(f"[失败] Solver 批 {i} 未完全成功，继续下一批")
+            print(f"[Failed] Solver batch {i} not fully successful, continue to next batch")
 
         # 2. 检查 results 下积累的 JSON/Parquet 数量，达到阈值则处理/上传
         json_count = _count_json()
         parquet_count = _count_parquet()
         if json_count >= batch_size or parquet_count >= batch_size:
-            print(f"\n[触发] results 下 JSON={json_count}, Parquet={parquet_count} (阈值 {batch_size})")
+            print(f"\n[Trigger] results JSON={json_count}, Parquet={parquet_count} (threshold {batch_size})")
             if json_count > 0:
-                print("[转换] JSON → Parquet")
+                print("[Convert] JSON → Parquet")
             else:
-                print("[处理] 直接上传原生 Parquet")
+                print("[Process] Directly upload Parquet files")
             if args.no_upload:
                 _do_convert_and_upload(False, repo_id=repo_id)
             else:
-                if upload_manager.submit_results(f"达到阈值 {batch_size}"):
-                    print("[后台上传] 已提交后台任务，继续下一批解算")
+                if upload_manager.submit_results(f"Threshold {batch_size}"):
+                    print("[Submitted] Background task submitted, continue to next batch")
 
     # 3. 结束时处理剩余 JSON/Parquet（无法整除或部分失败导致的数量不足）
     json_count = _count_json()
     parquet_count = _count_parquet()
     if json_count > 0 or parquet_count > 0:
-        print(f"\n[收尾] results 下剩余 JSON={json_count}, Parquet={parquet_count}")
+        print(f"\n[Cleanup] results JSON={json_count}, Parquet={parquet_count}")
         if args.no_upload:
             _do_convert_and_upload(False, repo_id=repo_id)
         else:
-            if upload_manager.submit_results("收尾阶段"):
-                print("[后台上传] 已提交收尾任务，等待后台上传完成")
+            if upload_manager.submit_results("Cleanup"):
+                print("[Submitted] Cleanup task submitted, waiting for background upload to complete")
 
     if not args.no_upload:
         if not upload_manager.wait():
-            print("[错误] 后台上传存在失败任务，请检查 _upload_staging 目录")
+            print("[Error] Background upload has failed tasks, please check _upload_staging directory")
             sys.exit(1)
 
     print("\n" + "=" * 60)
-    print("[完成] 流水线执行完毕")
+    print("[Completed] Pipeline execution completed")
     print("=" * 60)
 
 
