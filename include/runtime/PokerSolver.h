@@ -11,6 +11,7 @@
 #include "tools/PrivateRangeConverter.h"
 #include "solver/CfrSolver.h"
 #include "solver/PCfrSolver.h"
+#include "runtime/ExportFormat.h"
 #include "library.h"
 using namespace std;
 
@@ -45,7 +46,7 @@ public:
             bool enable_equity = false,
             bool enable_range = false
             );
-    void dump_strategy(string dump_file,int dump_rounds);
+    void dump_strategy(string dump_file,int dump_rounds,SolverDumpFormat dump_format = SolverDumpFormat::PARQUET_JSON);
     long long estimate_tree_memory(string p1_range, string p2_range, string boards);
     Deck& getDeck() { return deck; }
 private:

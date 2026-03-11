@@ -8,23 +8,12 @@ import csv
 from typing import Generator, Dict, Any, List, Optional
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-
-try:
-    import pyarrow.parquet as pq
-except ImportError:
-    pq = None  # type: ignore
+from solver_result_io import load_solver_result_from_parquet
 
 
 def _load_from_parquet(parquet_path: Path) -> Dict[str, Any]:
     """从 Parquet 文件加载策略树数据（格式与原 JSON 一致）"""
-    if pq is None:
-        raise RuntimeError("请安装 pyarrow: pip install pyarrow")
-    table = pq.read_table(parquet_path)
-    records = table.to_pylist()
-    if not records:
-        raise ValueError(f"Parquet 文件为空: {parquet_path}")
-    raw = records[0].get("data")
-    return json.loads(raw) if isinstance(raw, str) else raw
+    return load_solver_result_from_parquet(parquet_path)
 
 
 @dataclass

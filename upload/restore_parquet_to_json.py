@@ -14,11 +14,12 @@ import json
 import sys
 from pathlib import Path
 
-try:
-    import pyarrow.parquet as pq
-except ImportError:
-    print("pip install pyarrow")
-    sys.exit(1)
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from solver_result_io import load_solver_result_from_parquet
 
 
 def restore(parquet_path: Path, output_path: Path | None = None, indent: int | None = None) -> bool:
@@ -28,15 +29,7 @@ def restore(parquet_path: Path, output_path: Path | None = None, indent: int | N
         return False
 
     out = output_path or parquet_path.with_suffix(".json")
-
-    table = pq.read_table(parquet_path)
-    records = table.to_pylist()
-
-    def parse(r):
-        d = r["data"]
-        return json.loads(d) if isinstance(d, str) else d
-
-    data = parse(records[0]) if len(records) == 1 else [parse(r) for r in records]
+    data = load_solver_result_from_parquet(parquet_path)
     with open(out, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=indent)
 

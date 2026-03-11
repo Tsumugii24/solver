@@ -3,6 +3,25 @@
 //
 #include "tools/CommandLineTool.h"
 
+#include <algorithm>
+#include <cctype>
+
+namespace {
+bool endsWithCaseInsensitive(const string& value, const string& suffix) {
+    if (suffix.size() > value.size()) {
+        return false;
+    }
+    return std::equal(suffix.rbegin(), suffix.rend(), value.rbegin(), [](char lhs, char rhs) {
+        return static_cast<char>(std::tolower(static_cast<unsigned char>(lhs))) ==
+               static_cast<char>(std::tolower(static_cast<unsigned char>(rhs)));
+    });
+}
+
+bool hasKnownOutputSuffix(const string& output_file) {
+    return endsWithCaseInsensitive(output_file, ".json") || endsWithCaseInsensitive(output_file, ".parquet");
+}
+}
+
 CommandLineTool::CommandLineTool(string mode,string resource_dir) {
     string suits = "c,d,h,s";
     string ranks;
@@ -90,6 +109,9 @@ void split(const string& s, char c,
 
 
 void CommandLineTool::processCommand(string input) {
+    if (std::all_of(input.begin(), input.end(), [](unsigned char ch) { return std::isspace(ch) != 0; })) {
+        return;
+    }
     vector<string> contents;
     split(input,' ',contents);
     if(contents.size() == 0) contents = {input};
@@ -161,6 +183,12 @@ void CommandLineTool::processCommand(string input) {
     }else if(command == "set_enable_range"){
         this->enable_range = (stoi(paramstr) != 0);
         cout << fmt::format("Range export: {}", this->enable_range ? "enabled" : "disabled") << endl;
+    }else if(command == "set_dump_format"){
+        this->dump_format = parseSolverDumpFormat(paramstr);
+        if(!solverDumpFormatSupportedOnCurrentPlatform(this->dump_format)) {
+            throw runtime_error(solverDumpFormatPlatformSupportMessage(this->dump_format));
+        }
+        cout << fmt::format("Dump format: {}", solverDumpFormatName(this->dump_format)) << endl;
     }else if(command == "start_solve"){
         cout << "<<<START SOLVING>>>" << endl;
         if(this->enable_equity) {
@@ -192,7 +220,22 @@ void CommandLineTool::processCommand(string input) {
         cout << fmt::format("Estimated memory usage: {:.2f} GB ({} floats)", memory_gb, estimated_memory) << endl;
     }else if(command == "dump_result"){
         string output_file = paramstr;
-        this->ps.dump_strategy(output_file,this->dump_rounds);
+        if(!solverDumpFormatSupportedOnCurrentPlatform(this->dump_format)) {
+            throw runtime_error(solverDumpFormatPlatformSupportMessage(this->dump_format));
+        }
+        if(hasKnownOutputSuffix(output_file)) {
+            const bool expects_parquet = solverDumpFormatRequiresParquet(this->dump_format);
+            const bool is_parquet_output = endsWithCaseInsensitive(output_file, ".parquet");
+            if(expects_parquet != is_parquet_output) {
+                throw runtime_error(fmt::format(
+                        "dump_result file '{}' does not match dump format '{}' (expected suffix '{}')",
+                        output_file,
+                        solverDumpFormatName(this->dump_format),
+                        solverDumpFormatRecommendedExtension(this->dump_format)
+                ));
+            }
+        }
+        this->ps.dump_strategy(output_file,this->dump_rounds,this->dump_format);
     }else if(command == "set_dump_rounds"){
         this->dump_rounds = stoi(paramstr);
     }else{

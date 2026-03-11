@@ -315,6 +315,32 @@ equity = win_prob + tie_prob / 2
 
 ---
 
+### `set_dump_format`
+
+**语法**: `set_dump_format <json|parquet|parquet_native>`
+
+**示例**:
+
+- `set_dump_format json`
+- `set_dump_format parquet`
+- `set_dump_format parquet_native`
+
+**说明**: 设置 `dump_result` 的导出格式。
+
+| 值 | 输出格式 | 典型用途 |
+|----|----------|----------|
+| `json` | 传统 JSON 文件 | 完全兼容现有工作流 |
+| `parquet` | 单列 `data` 的 Parquet，列内仍保存完整 JSON 字符串 | 去掉 Python JSON→Parquet 后处理 |
+| `parquet_native` | 原生结构化 Parquet | 追求更高压缩率和后续高效读取（仅 Linux） |
+
+> 💡 **提示**:
+> - 未指定 `set_dump_format` 时，默认使用 `parquet`
+> - Windows: 支持 `json`、`parquet`
+> - Linux: 支持 `json`、`parquet`、`parquet_native`
+> - `parquet` 与现有 Python 后处理生成的 Parquet 逻辑兼容；`parquet_native` 会使用结构化 schema，并由新版读取脚本自动识别。
+
+---
+
 ### `set_dump_rounds`
 
 **语法**: `set_dump_rounds <数值>`
@@ -353,9 +379,15 @@ void PCfrSolver::reConvertJson(..., int depth, int max_depth, ...) {
 
 **语法**: `dump_result <文件名>`
 
-**示例**: `dump_result my_strategy.json`
+**示例**:
 
-**说明**: 将求解结果导出到指定的 JSON 文件。文件将保存到当前工作目录或 `results/` 目录下。
+- `dump_result my_strategy.json`
+- `dump_result my_strategy.parquet`
+
+**说明**: 将求解结果导出到指定文件。输出文件后缀应与 `set_dump_format` 匹配：
+
+- `json` 对应 `.json`
+- `parquet` / `parquet_native` 对应 `.parquet`
 
 ---
 
@@ -407,6 +439,7 @@ set_use_isomorphism 1
 start_solve
 
 # 导出结果
+set_dump_format json
 set_dump_rounds 1
 dump_result my_strategy.json
 ```

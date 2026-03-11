@@ -2,6 +2,7 @@
 // Created by Xuefeng Huang on 2020/2/7.
 //
 #include <pybind11/pybind11.h>
+#include <stdexcept>
 #include "runtime/PokerSolver.h"
 
 
@@ -65,7 +66,19 @@ PYBIND11_MODULE(bindSolver, m) {
             .def(py::init<std::string,std::string,std::string,int>())
             .def("load_game_tree", &PokerSolver::load_game_tree)
             .def("train", &PokerSolver::train)
-            .def("dump_strategy", &PokerSolver::dump_strategy);
+            .def(
+                    "dump_strategy",
+                    [](PokerSolver& solver, const std::string& dump_file, int dump_rounds, const std::string& dump_format) {
+                        const auto format = parseSolverDumpFormat(dump_format);
+                        if(!solverDumpFormatSupportedOnCurrentPlatform(format)) {
+                            throw std::runtime_error(solverDumpFormatPlatformSupportMessage(format));
+                        }
+                        solver.dump_strategy(dump_file, dump_rounds, format);
+                    },
+                    py::arg("dump_file"),
+                    py::arg("dump_rounds") = 1,
+                    py::arg("dump_format") = "parquet"
+            );
 
 
 #ifdef VERSION_INFO

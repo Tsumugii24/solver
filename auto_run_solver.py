@@ -1,6 +1,6 @@
 """
 TexasSolver Console 自动批量求解脚本
-从 cards.txt 或 cards.xlsx 读取牌面配置，自动生成配置文件并串行求解
+从 cards.txt 读取牌面配置，自动生成配置文件并串行求解
 支持容错机制和详细统计信息
 """
 
@@ -40,6 +40,8 @@ TIMEOUT = 7200  # 2小时
 MAX_RETRIES = 1
 # =============================================
 
+SUPPORTED_DUMP_FORMATS = ["json", "parquet"] if IS_WINDOWS else ["json", "parquet", "parquet_native"]
+
 
 # solving config
 CONFIG = """set_pot {pot}
@@ -77,6 +79,7 @@ set_print_interval {print_interval}
 set_use_isomorphism 1
 set_enable_range 1
 start_solve
+set_dump_format {dump_format}
 set_dump_rounds 1
 dump_result {output_file}
 """
@@ -353,6 +356,10 @@ def board_to_filename(board: str) -> str:
     return board.replace(",", "")
 
 
+def dump_format_to_extension(dump_format: str) -> str:
+    return ".json" if dump_format == "json" else ".parquet"
+
+
 def generate_config_file(
     board: str,
     output_dir: Path,
@@ -363,7 +370,8 @@ def generate_config_file(
     max_iteration: int = 300,
     print_interval: int = 10,
     range_oop: str = None,
-    range_ip: str = None
+    range_ip: str = None,
+    dump_format: str = "parquet"
 ) -> Path:
     """
     生成配置文件
@@ -383,7 +391,7 @@ def generate_config_file(
     
     filename = board_to_filename(board)
     config_path = output_dir / f"{filename}.txt"
-    output_file = f"{filename}.json"
+    output_file = f"{filename}{dump_format_to_extension(dump_format)}"
     
     config_content = CONFIG.format(
         pot=pot,
@@ -395,6 +403,7 @@ def generate_config_file(
         accuracy=accuracy,
         max_iteration=max_iteration,
         print_interval=print_interval,
+        dump_format=dump_format,
         output_file=output_file
     )
     
@@ -670,6 +679,9 @@ def main():
 
   # 自定义求解参数
   python auto_run_solver.py 1-10 --thread-num 8 --max-iteration 500
+
+  # 直接导出原生 Parquet
+  python auto_run_solver.py 1-10 --dump-format parquet
         """
     )
     
@@ -688,6 +700,13 @@ def main():
     parser.add_argument("--max-iteration", type=int, default=300, help="最大迭代次数（默认: 300）")
     parser.add_argument("--print-interval", type=int, default=10, help="打印间隔（默认: 10）")
     parser.add_argument("--max-retries", type=int, default=3, help="最大重试次数（默认: 3）")
+    parser.add_argument(
+        "--dump-format",
+        type=str,
+        default="parquet",
+        choices=SUPPORTED_DUMP_FORMATS,
+        help="导出格式（默认: parquet）"
+    )
     parser.add_argument("--interactive", "-i", action="store_true", help="交互模式，开始前等待确认（默认跳过确认）")
     
     args = parser.parse_args()
@@ -745,7 +764,7 @@ def main():
     
     # 筛选牌面
     boards_to_solve = [(i, all_boards[i - 1]) for i in indices]
-    print(f"[配置] thread_num={args.thread_num}, max_iteration={args.max_iteration}")
+    print(f"[配置] thread_num={args.thread_num}, max_iteration={args.max_iteration}, dump_format={args.dump_format}")
     print(f"[容错] 最大重试次数: {args.max_retries}")
     
     # 显示牌面列表
@@ -779,7 +798,8 @@ def main():
                     thread_num=args.thread_num,
                     accuracy=args.accuracy,
                     max_iteration=args.max_iteration,
-                    print_interval=args.print_interval
+                    print_interval=args.print_interval,
+                    dump_format=args.dump_format
                 )
                 print(f"[配置] 生成: {config_file.name}")
             except Exception as e:
@@ -804,7 +824,7 @@ def main():
                 error=error,
                 retries=retries,
                 config_file=str(config_file),
-                output_file=f"{board_to_filename(board)}.json"
+                output_file=f"{board_to_filename(board)}{dump_format_to_extension(args.dump_format)}"
             )
             stats.results.append(result)
             

@@ -4,11 +4,7 @@ import random
 import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-
-try:
-    import pyarrow.parquet as pq
-except ImportError:
-    pq = None  # type: ignore
+from solver_result_io import load_solver_result_from_parquet
 
 # Add the current directory to sys.path to allow importing from parse_solver_result
 # Assuming this script is in solver/ and parse_solver_result.py is also in solver/
@@ -28,14 +24,7 @@ def _load_data(path: Path) -> Dict[str, Any]:
     """从 JSON 或 Parquet 文件加载策略树数据"""
     path = Path(path)
     if path.suffix.lower() == '.parquet':
-        if pq is None:
-            raise RuntimeError("请安装 pyarrow: pip install pyarrow")
-        table = pq.read_table(path)
-        records = table.to_pylist()
-        if not records:
-            raise ValueError(f"Parquet 文件为空: {path}")
-        raw = records[0].get("data")
-        return json.loads(raw) if isinstance(raw, str) else raw
+        return load_solver_result_from_parquet(path)
     else:
         with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -705,7 +694,7 @@ def main(data_file: str, action_line: str = None, hand: str = None, output_csv: 
 
 if __name__ == "__main__":
     # 支持 JSON 或 Parquet
-    data_file = 'cache/Ac2c2d.parquet'  # 或 'results/AcTc6c.json'
+    data_file = 'results/parquet_native.parquet'  # 或 'results/AcTc6c.json'
 
     # 示例 1: 手动指定 action line（使用绝对值）
     # action_line = 'ROOT, BET 2, RAISE 7, RAISE 15, CALL, DEAL: 6h, BET 20'

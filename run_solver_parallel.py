@@ -374,6 +374,8 @@ def run_solver_worker(args: tuple) -> dict:
                 
                 for output_file in output_files:
                     json_file = Path(RESULTS_DIR) / output_file
+                    if json_file.suffix.lower() != ".json":
+                        continue
                     if json_file.exists():
                         try:
                             format_json_floats(str(json_file), precision=FLOAT_PRECISION)

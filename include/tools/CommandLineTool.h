@@ -9,6 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include "runtime/PokerSolver.h"
+#include "runtime/ExportFormat.h"
 
 using namespace std;
 class CommandLineTool{
@@ -42,6 +43,7 @@ private:
     int use_isomorphism=0;
     int print_interval=10;
     int dump_rounds = 1;
+    SolverDumpFormat dump_format = SolverDumpFormat::PARQUET_JSON;
     bool enable_equity = false;
     bool enable_range = true;
     shared_ptr<GameTreeBuildingSettings> gtbs;

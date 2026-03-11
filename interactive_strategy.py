@@ -24,6 +24,7 @@ from query_action_line import (
     _load_data,
     _auto_detect_config,
 )
+from solver_result_io import detect_parquet_format
 try:
     from parse_solver_result import parse_config, _expand_range_to_hands
 except ImportError:
@@ -245,7 +246,10 @@ def _export_turn_config_at_flop_end(
     # 保留第 6 行到倒数第二行
     if len(lines) > 5:
         new_lines.extend(lines[5:-1])
-    dump_name = out_name.replace(".txt", ".json")
+    dump_format = detect_parquet_format(querier.data_path) if querier.data_path.suffix.lower() == ".parquet" else "json"
+    dump_ext = ".parquet" if dump_format != "json" else ".json"
+    dump_name = out_name.replace(".txt", dump_ext)
+    new_lines.append(f"set_dump_format {dump_format}\n")
     new_lines.append(f"dump_result {dump_name}\n")
 
     with open(out_path, "w", encoding="utf-8") as f:
@@ -323,7 +327,10 @@ def _export_river_config_at_turn_end(
     ]
     if len(lines) > 5:
         new_lines.extend(lines[5:-1])
-    dump_name = out_name.replace(".txt", ".json")
+    dump_format = detect_parquet_format(querier.data_path) if querier.data_path.suffix.lower() == ".parquet" else "json"
+    dump_ext = ".parquet" if dump_format != "json" else ".json"
+    dump_name = out_name.replace(".txt", dump_ext)
+    new_lines.append(f"set_dump_format {dump_format}\n")
     new_lines.append(f"dump_result {dump_name}\n")
 
     with open(out_path, "w", encoding="utf-8") as f:

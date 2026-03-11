@@ -33,6 +33,6 @@ set_print_interval 20
 set_use_isomorphism 1
 set_enable_range 1
 start_solve
-set_dump_format json
+set_dump_format parquet_native
 set_dump_rounds 1
-dump_result flop_strategy.json
+dump_result flop_parquet_native.parquet

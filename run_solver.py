@@ -292,6 +292,8 @@ def run_solver(config_file: str, mode: str = "holdem", post_process: bool = None
                 
                 for output_file in output_files:
                     json_file = Path(results_dir) / output_file
+                    if json_file.suffix.lower() != ".json":
+                        continue
                     if json_file.exists():
                         print(f"[后处理] 格式化浮点数: {json_file.name}")
                         try:

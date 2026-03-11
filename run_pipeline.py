@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-自动化流水线：Solver → JSON → Parquet → Hugging Face
+自动化流水线：Solver → JSON/Parquet → Hugging Face
 
-转换触发条件：结果目录下积累的 JSON 数量 >= batch_size 时，才执行转换+上传。
+转换触发条件：结果目录下积累的 JSON 或原生 Parquet 数量 >= batch_size 时，才执行转换/上传。
 （不按求解批次触发，避免部分任务失败时逻辑混乱）
 
 用法:
@@ -27,6 +27,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 RESULTS_DIR = SCRIPT_DIR / "results"
 UPLOAD_DIR = SCRIPT_DIR / "upload"
+SUPPORTED_DUMP_FORMATS = ["json", "parquet"] if sys.platform == "win32" else ["json", "parquet", "parquet_native"]
 
 
 def _run(cmd: list, cwd: Path = None) -> bool:
@@ -65,6 +66,13 @@ def _count_json() -> int:
     return len(list(RESULTS_DIR.glob("*.json")))
 
 
+def _count_parquet() -> int:
+    """统计 results 目录下的 Parquet 文件数量"""
+    if not RESULTS_DIR.is_dir():
+        return 0
+    return len(list(RESULTS_DIR.glob("*.parquet")))
+
+
 def _delete_parquets() -> int:
     """删除 results 目录下已上传的 parquet 文件，返回删除数量。"""
     if not RESULTS_DIR.is_dir():
@@ -80,10 +88,22 @@ def _delete_parquets() -> int:
 
 
 def _do_convert_and_upload(upload: bool) -> bool:
-    """执行 JSON→Parquet 转换，可选上传。上传成功后删除 parquet 以节省空间。返回是否成功。"""
-    if not _ensure_pyarrow():
-        return False
-    ok = _run([sys.executable, str(UPLOAD_DIR / "batch_json_to_parquet.py"), str(RESULTS_DIR)])
+    """处理 results 中的 JSON/Parquet 产物，可选上传。返回是否成功。"""
+    json_count = _count_json()
+    parquet_count = _count_parquet()
+    ok = True
+
+    if json_count > 0:
+        if not _ensure_pyarrow():
+            return False
+        ok = _run([sys.executable, str(UPLOAD_DIR / "batch_json_to_parquet.py"), str(RESULTS_DIR)])
+        if not ok:
+            return False
+        parquet_count = _count_parquet()
+
+    if parquet_count == 0:
+        return ok
+
     if ok and upload:
         ok = _run([sys.executable, str(UPLOAD_DIR / "upload_to_hf.py"), str(RESULTS_DIR)])
         if ok:
@@ -174,7 +194,7 @@ def _ensure_hf_logged_in() -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Solver → JSON → Parquet → Hugging Face 自动化流水线",
+        description="Solver → JSON/Parquet → Hugging Face 自动化流水线",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__
     )
@@ -191,6 +211,13 @@ def main():
     parser.add_argument("--file", type=str, default="cards.txt")
     parser.add_argument("--thread-num", type=int, default=-1)
     parser.add_argument("--max-iteration", type=int, default=300)
+    parser.add_argument(
+        "--dump-format",
+        type=str,
+        default="parquet",
+        choices=SUPPORTED_DUMP_FORMATS,
+        help="透传给 auto_run_solver 的导出格式（默认: parquet）"
+    )
     args = parser.parse_args()
 
     total = _get_total_boards()
@@ -208,11 +235,11 @@ def main():
     has_remainder = last_batch_size > 0 and last_batch_size < batch_size and len(batches) > 1
 
     print("=" * 60)
-    print("自动化流水线: Solver → Parquet → Hugging Face")
+    print("自动化流水线: Solver → JSON/Parquet → Hugging Face")
     print("=" * 60)
     print(f"总任务: {len(indices)} 个牌面")
     print(f"求解批次: {len(batches)}，每批最多 {batch_size} 个")
-    print(f"转换触发: results 下 JSON 数量 >= {batch_size} 时转换+上传")
+    print(f"触发条件: results 下 JSON 或 Parquet 数量 >= {batch_size} 时处理+上传")
     if has_remainder:
         print(f"  （最后一批含 {last_batch_size} 个；结束时若有剩余 JSON 也会转换）")
     print(f"结果目录: {RESULTS_DIR}")
@@ -232,12 +259,11 @@ def main():
             sys.exit(1)
 
     if args.convert_only:
-        print("\n[模式] 仅转换+上传（不跑 solver）")
-        if not _ensure_pyarrow():
-            sys.exit(1)
-        _run([sys.executable, str(UPLOAD_DIR / "batch_json_to_parquet.py"), str(RESULTS_DIR)])
-        if not args.no_upload:
-            _run([sys.executable, str(UPLOAD_DIR / "upload_to_hf.py"), str(RESULTS_DIR)])
+        print("\n[模式] 仅处理现有结果并上传（不跑 solver）")
+        if _count_json() == 0 and _count_parquet() == 0:
+            print("[提示] results 目录下没有 JSON 或 Parquet 文件")
+            sys.exit(0)
+        _do_convert_and_upload(not args.no_upload)
         print("\n[完成]")
         sys.exit(0)
 
@@ -254,23 +280,29 @@ def main():
             "--file", args.file,
             "--thread-num", str(args.thread_num),
             "--max-iteration", str(args.max_iteration),
+            "--dump-format", args.dump_format,
         ]
         if not _run(solver_cmd):
             print(f"[失败] Solver 批 {i} 未完全成功，继续下一批")
 
-        # 2. 检查 results 下积累的 JSON 数量，达到 batch_size 则转换+上传
+        # 2. 检查 results 下积累的 JSON/Parquet 数量，达到阈值则处理+上传
         json_count = _count_json()
-        if json_count >= batch_size:
-            print(f"\n[触发] results 下已积累 {json_count} 个 JSON (>= {batch_size})")
-            print("[转换] JSON → Parquet")
+        parquet_count = _count_parquet()
+        if json_count >= batch_size or parquet_count >= batch_size:
+            print(f"\n[触发] results 下 JSON={json_count}, Parquet={parquet_count} (阈值 {batch_size})")
+            if json_count > 0:
+                print("[转换] JSON → Parquet")
+            else:
+                print("[处理] 直接上传原生 Parquet")
             _do_convert_and_upload(not args.no_upload)
             if not args.no_upload:
                 print("[上传] Hugging Face")
 
-    # 3. 结束时处理剩余 JSON（无法整除或部分失败导致的数量不足）
+    # 3. 结束时处理剩余 JSON/Parquet（无法整除或部分失败导致的数量不足）
     json_count = _count_json()
-    if json_count > 0:
-        print(f"\n[收尾] results 下剩余 {json_count} 个 JSON，转换并上传")
+    parquet_count = _count_parquet()
+    if json_count > 0 or parquet_count > 0:
+        print(f"\n[收尾] results 下剩余 JSON={json_count}, Parquet={parquet_count}，处理并上传")
         _do_convert_and_upload(not args.no_upload)
         if not args.no_upload:
             print("[上传] Hugging Face")

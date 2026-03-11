@@ -3,6 +3,7 @@
 //
 
 #include "runtime/PokerSolver.h"
+#include "runtime/ParquetExporter.h"
 #include <iomanip>
 #include <chrono>
 #include <sstream>
@@ -140,7 +141,7 @@ void PokerSolver::train(string p1_range, string p2_range, string boards, string 
     this->solver->train();
 }
 
-void PokerSolver::dump_strategy(string dump_file,int dump_rounds) {
+void PokerSolver::dump_strategy(string dump_file,int dump_rounds,SolverDumpFormat dump_format) {
     auto start_time = std::chrono::high_resolution_clock::now();
     
     // dumps 函数内部会显示进度条
@@ -150,13 +151,21 @@ void PokerSolver::dump_strategy(string dump_file,int dump_rounds) {
     auto gen_duration = std::chrono::duration_cast<std::chrono::milliseconds>(gen_time - start_time).count();
     cout << "Generation time: " << gen_duration / 1000.0 << "s" << endl;
     
-    cout << "Writing to file: " << dump_file << "..." << flush;
-    ofstream fileWriter;
-    fileWriter.open(dump_file);
-    // 使用自定义序列化函数，确保浮点数精度为3位小数
-    write_json_with_precision(fileWriter, dump_json, 3, 0, false);
-    fileWriter.flush();
-    fileWriter.close();
+    cout << "Writing " << solverDumpFormatName(dump_format) << " to file: " << dump_file << "..." << flush;
+    if(dump_format == SolverDumpFormat::JSON) {
+        ofstream fileWriter;
+        fileWriter.open(dump_file);
+        // 使用自定义序列化函数，确保浮点数精度为3位小数
+        write_json_with_precision(fileWriter, dump_json, 3, 0, false);
+        fileWriter.flush();
+        fileWriter.close();
+    } else if(dump_format == SolverDumpFormat::PARQUET_JSON) {
+        writeSolverParquetJson(dump_file, dump_json, dump_rounds);
+    } else if(dump_format == SolverDumpFormat::PARQUET_STRUCTURED) {
+        writeStructuredSolverParquet(dump_file, dump_json, dump_rounds);
+    } else {
+        throw runtime_error("unsupported dump format");
+    }
     auto write_time = std::chrono::high_resolution_clock::now();
     auto write_duration = std::chrono::duration_cast<std::chrono::milliseconds>(write_time - gen_time).count();
     cout << " done (" << write_duration / 1000.0 << "s)" << endl;

@@ -29,4 +29,4 @@ set_enable_range 1
 start_solve
 set_dump_format json
 set_dump_rounds 1
-dump_result turn_strategy.json
+dump_result turn_json.json
