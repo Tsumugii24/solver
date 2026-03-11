@@ -694,12 +694,12 @@ def main():
     
     # 求解器参数
     parser.add_argument("--pot", type=int, default=5, help="底池大小（默认: 5）")
-    parser.add_argument("--stack", type=int, default=100, help="有效筹码（默认: 100）")
+    parser.add_argument("--stack", type=int, default=98, help="有效筹码（默认: 98）")
     parser.add_argument("--thread-num", type=int, default=-1, help="线程数（默认: -1，使用所有核心）")
     parser.add_argument("--accuracy", type=float, default=1, help="精度（默认: 1）")
     parser.add_argument("--max-iteration", type=int, default=300, help="最大迭代次数（默认: 300）")
     parser.add_argument("--print-interval", type=int, default=10, help="打印间隔（默认: 10）")
-    parser.add_argument("--max-retries", type=int, default=3, help="最大重试次数（默认: 3）")
+    parser.add_argument("--max-retries", type=int, default=1, help="最大重试次数（默认: 1）")
     parser.add_argument(
         "--dump-format",
         type=str,
