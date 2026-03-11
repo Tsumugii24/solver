@@ -86,11 +86,11 @@ dump_result {output_file}
 
 # preflop range config file
 RANGES_DIR = SCRIPT_DIR / "ranges"
-PREFLOP_RANGE_FILE = RANGES_DIR / "preflop.txt"
+PREFLOP_RANGE_FILE = RANGES_DIR / "sia.txt"
 
 
 def _load_preflop_ranges() -> Tuple[str, str]:
-    """load preflop range from ranges/preflop.txt, if file not found or format error, raise exception"""
+    """load preflop range from ranges/sia.txt, if file not found or format error, raise exception"""
     if not PREFLOP_RANGE_FILE.exists():
         raise FileNotFoundError(
             f"preflop range config file not found: {PREFLOP_RANGE_FILE}\n"
