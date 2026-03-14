@@ -11,10 +11,13 @@ ENABLE_PARQUET_EXPORT=1
 INSTALL_DEPS=1
 BUILD_DIR="build"
 BUILD_TYPE="Release"
+BUILD_TYPE_EXPLICIT=0
 TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE:-}"
 PREFIX_PATH=""
 PACKAGE_MANAGER=""
 CMAKE_BIN=""
+ENABLE_ASAN=0
+ENABLE_UBSAN=0
 
 log() {
     echo "$@"
@@ -343,6 +346,14 @@ build_with_clean_env() {
         fi
     fi
 
+    if [[ "$ENABLE_ASAN" -eq 1 ]]; then
+        cmake_args+=(-DENABLE_ADDRESS_SANITIZER=ON)
+    fi
+
+    if [[ "$ENABLE_UBSAN" -eq 1 ]]; then
+        cmake_args+=(-DENABLE_UNDEFINED_SANITIZER=ON)
+    fi
+
     if [[ -n "$TOOLCHAIN_FILE" ]]; then
         cmake_args+=("-DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_FILE")
     fi
@@ -380,7 +391,29 @@ while [[ $# -gt 0 ]]; do
         --build-type)
             need_value "$1" "${2:-}"
             BUILD_TYPE="$2"
+            BUILD_TYPE_EXPLICIT=1
             shift 2
+            ;;
+        --debug)
+            BUILD_TYPE="Debug"
+            BUILD_TYPE_EXPLICIT=1
+            shift
+            ;;
+        --asan)
+            ENABLE_ASAN=1
+            shift
+            ;;
+        --ubsan)
+            ENABLE_UBSAN=1
+            shift
+            ;;
+        --debug-sanitizers)
+            ENABLE_ASAN=1
+            ENABLE_UBSAN=1
+            if [[ "$BUILD_TYPE_EXPLICIT" -eq 0 ]]; then
+                BUILD_TYPE="Debug"
+            fi
+            shift
             ;;
         --toolchain-file)
             need_value "$1" "${2:-}"
@@ -407,6 +440,10 @@ Options:
   --skip-deps                  Skip system dependency installation
   --build-dir <dir>            Build directory (default: build)
   --build-type <type>          CMake build type (default: Release)
+  --debug                      Shortcut for --build-type Debug
+  --asan                       Enable AddressSanitizer
+  --ubsan                      Enable UndefinedBehaviorSanitizer
+  --debug-sanitizers           Enable both ASan and UBSan and default to Debug
   --toolchain-file <file>      Optional CMake toolchain file
   --cmake-prefix-path <path>   Optional CMAKE_PREFIX_PATH override
   --package-manager <name>     Force package manager: apt|dnf|yum|pacman|zypper
@@ -414,6 +451,8 @@ Options:
 Examples:
   ./compile.sh
   ./compile.sh --disable-parquet-export
+  ./compile.sh --debug-sanitizers
+  ./compile.sh --debug --asan --ubsan --disable-parquet-export
   ./compile.sh --skip-deps --cmake-prefix-path /opt/arrow
   ./compile.sh --toolchain-file "$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake"
 EOF
@@ -426,6 +465,12 @@ EOF
 done
 
 [[ "$(uname -s)" == "Linux" ]] || die "This script only supports Linux"
+
+if [[ "$ENABLE_ASAN" -eq 1 || "$ENABLE_UBSAN" -eq 1 ]]; then
+    if [[ "$BUILD_TYPE_EXPLICIT" -eq 0 && "$BUILD_TYPE" == "Release" ]]; then
+        BUILD_TYPE="Debug"
+    fi
+fi
 
 echo "=========================================="
 echo "TexasSolver Console Linux Build"
@@ -440,6 +485,16 @@ if [[ "$INSTALL_DEPS" -eq 1 ]]; then
     echo "Auto-install dependencies: ON"
 else
     echo "Auto-install dependencies: OFF"
+fi
+if [[ "$ENABLE_ASAN" -eq 1 ]]; then
+    echo "AddressSanitizer: ON"
+else
+    echo "AddressSanitizer: OFF"
+fi
+if [[ "$ENABLE_UBSAN" -eq 1 ]]; then
+    echo "UndefinedBehaviorSanitizer: ON"
+else
+    echo "UndefinedBehaviorSanitizer: OFF"
 fi
 
 if [[ "$INSTALL_DEPS" -eq 1 ]]; then
@@ -470,4 +525,9 @@ echo "[5/5] Build completed!"
 echo ""
 echo "=========================================="
 echo "Executable: $SCRIPT_DIR/install/console_solver"
+if [[ "$ENABLE_ASAN" -eq 1 || "$ENABLE_UBSAN" -eq 1 ]]; then
+    echo "Recommended runtime env:"
+    echo "  ASAN_OPTIONS=halt_on_error=1:abort_on_error=1:detect_leaks=0:symbolize=1"
+    echo "  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1"
+fi
 echo "=========================================="
