@@ -67,6 +67,19 @@ def _get_total_boards() -> int:
     return len(boards)
 
 
+def _get_cards_path(cards_file: str) -> Path:
+    return SCRIPT_DIR / "cards" / cards_file
+
+
+def _read_all_boards(cards_file: str) -> list[str]:
+    """读取牌面文件并返回标准化后的牌面字符串列表。"""
+    from auto_run_solver import read_cards
+
+    cards_path = _get_cards_path(cards_file)
+    boards = read_cards(cards_path)
+    return [board for _, board in boards]
+
+
 def _count_json_in_dir(directory: Path) -> int:
     """统计指定目录下的 JSON 文件数量。"""
     if not directory.is_dir():
@@ -164,6 +177,47 @@ def _prompt_repo_id() -> str:
         print("[错误] 未提供 repo_id，退出")
         sys.exit(1)
     return repo_id
+
+
+def _normalize_repo_id(repo_id: str) -> str:
+    """支持从 URL 或 owner/repo 形式解析标准 repo_id。"""
+    from check_missing import parse_repo_id
+
+    return parse_repo_id(repo_id)
+
+
+def _filter_requested_indices_by_hf(
+    repo_id: str,
+    requested_indices: list[int],
+    cards_file: str,
+) -> tuple[list[int], int, int, int]:
+    """
+    根据 Hugging Face dataset 已存在的牌面过滤待求解序号。
+
+    Returns:
+        (remaining_indices, total_repo_existing, skipped_in_requested, total_boards)
+    """
+    from check_missing import board_to_filename, list_boards_in_hf_dataset
+
+    all_boards = _read_all_boards(cards_file)
+    boards_in_hf = list_boards_in_hf_dataset(repo_id)
+
+    requested_set = set(requested_indices)
+    remaining_indices: list[int] = []
+    total_repo_existing = 0
+    skipped_in_requested = 0
+
+    for idx, board in enumerate(all_boards, start=1):
+        exists_in_repo = board_to_filename(board) in boards_in_hf
+        if exists_in_repo:
+            total_repo_existing += 1
+        if idx in requested_set:
+            if exists_in_repo:
+                skipped_in_requested += 1
+            else:
+                remaining_indices.append(idx)
+
+    return remaining_indices, total_repo_existing, skipped_in_requested, len(all_boards)
 
 
 @dataclass
@@ -390,7 +444,11 @@ def main():
     )
     args = parser.parse_args()
 
-    total = _get_total_boards()
+    try:
+        total = len(_read_all_boards(args.file))
+    except Exception as e:
+        print(f"[Error] Unable to read cards file: {e}")
+        sys.exit(1)
     if args.range.lower() == "all":
         indices = list(range(1, total + 1))
     else:
@@ -423,15 +481,53 @@ def main():
         sys.exit(0)
 
     repo_id = args.repo_id.strip() if args.repo_id else None
+    if repo_id:
+        try:
+            repo_id = _normalize_repo_id(repo_id)
+        except Exception as e:
+            print(f"[Error] Invalid repo_id: {e}")
+            sys.exit(1)
 
     # 需要上传时，先确认 repo_id 并检查 HF 登录
     if not args.no_upload:
         if not repo_id:
             repo_id = _prompt_repo_id()
+        try:
+            repo_id = _normalize_repo_id(repo_id)
+        except Exception as e:
+            print(f"[Error] Invalid repo_id: {e}")
+            sys.exit(1)
         print(f"[HF] Target Repository: https://huggingface.co/datasets/{repo_id}")
         if not _ensure_hf_logged_in():
             print("[Error] Unable to upload: Please login to HF or set HF_TOKEN")
             sys.exit(1)
+
+    if repo_id and not args.convert_only:
+        try:
+            requested_count = len(indices)
+            indices, repo_existing_count, skipped_in_requested, total_boards = _filter_requested_indices_by_hf(
+                repo_id=repo_id,
+                requested_indices=indices,
+                cards_file=args.file,
+            )
+        except Exception as e:
+            print(f"[Error] Failed to check existing boards in HF dataset: {e}")
+            sys.exit(1)
+
+        batch_size = max(1, args.batch_size)
+        batches = [indices[i:i + batch_size] for i in range(0, len(indices), batch_size)]
+        last_batch_size = len(batches[-1]) if batches else 0
+        has_remainder = last_batch_size > 0 and last_batch_size < batch_size and len(batches) > 1
+
+        print("\n" + "=" * 60)
+        print("[Check Missing] Hugging Face dataset scan completed")
+        print("=" * 60)
+        print(f"Dataset Existing: {repo_existing_count}/{total_boards}")
+        print(f"Requested Indices: {requested_count}")
+        print(f"Already Done In Request: {skipped_in_requested}")
+        print(f"Remaining To Solve: {len(indices)}")
+        if not indices:
+            print("[Info] Requested range is already complete in the target dataset")
 
     upload_manager = AsyncUploadManager(enabled=not args.no_upload, repo_id=repo_id)
 
