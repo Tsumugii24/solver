@@ -21,6 +21,10 @@ from pathlib import Path
 
 MAX_RETRIES = 1000
 RETRY_DELAY = 1
+FILE_PATTERNS = {
+    "json": "*.json",
+    "parquet": "*.parquet",
+}
 
 # Xet 高性能模式：充分利用带宽和 CPU
 os.environ.setdefault("HF_XET_HIGH_PERFORMANCE", "1")
@@ -32,9 +36,15 @@ except ImportError:
     sys.exit(1)
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Upload parquet files to HF with Xet")
-    parser.add_argument("dir", nargs="?", default="results", help="Directory with parquet files")
+    parser = argparse.ArgumentParser(description="Upload result files to HF with Xet")
+    parser.add_argument("dir", nargs="?", default="results", help="Directory with result files")
     parser.add_argument("--repo-id", required=True, help="Target HF dataset repo_id, e.g. user/dataset")
+    parser.add_argument(
+        "--file-format",
+        choices=sorted(FILE_PATTERNS),
+        default="parquet",
+        help="File format to upload (default: parquet)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Preview only, no upload")
     args = parser.parse_args()
 
@@ -43,12 +53,13 @@ def main() -> None:
         print(f"Not a directory: {root}")
         sys.exit(1)
 
-    parquets = list(root.glob("*.parquet"))
-    if not parquets:
-        print("No parquet files found")
+    pattern = FILE_PATTERNS[args.file_format]
+    files = list(root.glob(pattern))
+    if not files:
+        print(f"No {args.file_format} files found")
         sys.exit(0)
 
-    print(f"Found {len(parquets)} parquet files in {root}")
+    print(f"Found {len(files)} {args.file_format} files in {root}")
     print(f"Target: https://huggingface.co/datasets/{args.repo_id}")
     print(f"HF_XET_HIGH_PERFORMANCE={os.environ.get('HF_XET_HIGH_PERFORMANCE', 'not set')}")
     if args.dry_run:
@@ -63,7 +74,7 @@ def main() -> None:
                 folder_path=str(root),
                 repo_id=args.repo_id,
                 repo_type="dataset",
-                allow_patterns="*.parquet",
+                allow_patterns=pattern,
             )
             print("Done")
             sys.exit(0)

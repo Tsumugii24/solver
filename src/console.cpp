@@ -49,11 +49,21 @@ void installDebugSignalHandlers() {
         }
     }
 
+    sigset_t debug_signal_set;
+    sigemptyset(&debug_signal_set);
+    sigaddset(&debug_signal_set, SIGWINCH);
+    sigaddset(&debug_signal_set, SIGURG);
+    sigaddset(&debug_signal_set, SIGUSR1);
+    sigaddset(&debug_signal_set, SIGUSR2);
+    sigprocmask(SIG_UNBLOCK, &debug_signal_set, nullptr);
+
     struct sigaction action {};
     std::memset(&action, 0, sizeof(action));
     action.sa_handler = debugStackDumpHandler;
     sigemptyset(&action.sa_mask);
     action.sa_flags = SA_RESTART;
+    sigaction(SIGWINCH, &action, nullptr);
+    sigaction(SIGURG, &action, nullptr);
     sigaction(SIGUSR1, &action, nullptr);
     sigaction(SIGUSR2, &action, nullptr);
 }

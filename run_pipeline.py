@@ -35,7 +35,10 @@ if str(SCRIPT_DIR) not in sys.path:
 RESULTS_DIR = SCRIPT_DIR / "results"
 UPLOAD_DIR = SCRIPT_DIR / "upload"
 UPLOAD_STAGING_DIR = SCRIPT_DIR / "_upload_staging"
-SUPPORTED_DUMP_FORMATS = ["json", "parquet"] if sys.platform == "win32" else ["json", "parquet", "parquet_native"]
+SUPPORTED_EXPORT_FORMATS = ["json"] if sys.platform == "win32" else ["json", "parquet", "parquet_native"]
+SUPPORTED_UPLOAD_FORMATS = ["json", "parquet"]
+DEFAULT_EXPORT_FORMAT = "json" if sys.platform == "win32" else "parquet"
+DEFAULT_UPLOAD_FORMAT = "parquet"
 
 
 def _run(cmd: list, cwd: Path = None) -> bool:
@@ -104,6 +107,31 @@ def _count_parquet() -> int:
     return _count_parquet_in_dir(RESULTS_DIR)
 
 
+def _count_export_files_in_dir(directory: Path, export_format: str) -> int:
+    return _count_json_in_dir(directory) if export_format == "json" else _count_parquet_in_dir(directory)
+
+
+def _count_export_files(export_format: str) -> int:
+    return _count_export_files_in_dir(RESULTS_DIR, export_format)
+
+
+def _count_upload_files_in_dir(directory: Path, upload_format: str) -> int:
+    return _count_json_in_dir(directory) if upload_format == "json" else _count_parquet_in_dir(directory)
+
+
+def _delete_json_in_dir(directory: Path) -> int:
+    if not directory.is_dir():
+        return 0
+    deleted = 0
+    for f in directory.glob("*.json"):
+        try:
+            f.unlink()
+            deleted += 1
+        except OSError as e:
+            print(f"[警告] 删除 {f.name} 失败: {e}")
+    return deleted
+
+
 def _delete_parquets_in_dir(directory: Path) -> int:
     """删除指定目录下已上传的 parquet 文件，返回删除数量。"""
     if not directory.is_dir():
@@ -123,7 +151,14 @@ def _delete_parquets() -> int:
     return _delete_parquets_in_dir(RESULTS_DIR)
 
 
-def _do_convert_and_upload_in_dir(target_dir: Path, upload: bool, repo_id: Optional[str] = None) -> bool:
+def _do_convert_and_upload_in_dir(
+    target_dir: Path,
+    upload: bool,
+    repo_id: Optional[str] = None,
+    upload_format: str = DEFAULT_UPLOAD_FORMAT,
+) -> bool:
+    return _process_artifacts_in_dir(target_dir, upload, repo_id=repo_id, upload_format=upload_format)
+
     """处理指定目录中的 JSON/Parquet 产物，可选上传。返回是否成功。"""
     json_count = _count_json_in_dir(target_dir)
     parquet_count = _count_parquet_in_dir(target_dir)
@@ -160,7 +195,55 @@ def _do_convert_and_upload_in_dir(target_dir: Path, upload: bool, repo_id: Optio
 
 def _do_convert_and_upload(upload: bool, repo_id: Optional[str] = None) -> bool:
     """处理 results 中的 JSON/Parquet 产物，可选上传。返回是否成功。"""
-    return _do_convert_and_upload_in_dir(RESULTS_DIR, upload, repo_id=repo_id)
+    return _process_artifacts_in_dir(RESULTS_DIR, upload, repo_id=repo_id, upload_format=DEFAULT_UPLOAD_FORMAT)
+
+
+def _process_artifacts_in_dir(
+    target_dir: Path,
+    upload: bool,
+    repo_id: Optional[str] = None,
+    upload_format: str = DEFAULT_UPLOAD_FORMAT,
+) -> bool:
+    json_count = _count_json_in_dir(target_dir)
+    ok = True
+
+    if upload_format == "parquet" and json_count > 0:
+        if not _ensure_pyarrow():
+            return False
+        ok = _run([sys.executable, str(UPLOAD_DIR / "batch_json_to_parquet.py"), str(target_dir)])
+        if not ok:
+            return False
+
+    ready_count = _count_upload_files_in_dir(target_dir, upload_format)
+    if ready_count == 0:
+        return ok
+
+    if ok and upload:
+        if not repo_id:
+            print("[Error] Missing Hugging Face repo_id")
+            return False
+        ok = _run([
+            sys.executable,
+            str(UPLOAD_DIR / "upload_to_hf.py"),
+            str(target_dir),
+            "--repo-id",
+            repo_id,
+            "--file-format",
+            upload_format,
+        ])
+        if ok:
+            deleted = _delete_json_in_dir(target_dir) if upload_format == "json" else _delete_parquets_in_dir(target_dir)
+            if deleted > 0:
+                print(f"[Cleanup] Deleted {deleted} uploaded {upload_format} files")
+    return ok
+
+
+def _process_artifacts(
+    upload: bool,
+    repo_id: Optional[str] = None,
+    upload_format: str = DEFAULT_UPLOAD_FORMAT,
+) -> bool:
+    return _process_artifacts_in_dir(RESULTS_DIR, upload, repo_id=repo_id, upload_format=upload_format)
 
 
 def _prompt_repo_id() -> str:
@@ -233,9 +316,15 @@ class UploadJob:
 class AsyncUploadManager:
     """把 results 中的产物切到暂存区并在后台顺序上传。"""
 
-    def __init__(self, enabled: bool, repo_id: Optional[str] = None):
+    def __init__(
+        self,
+        enabled: bool,
+        repo_id: Optional[str] = None,
+        upload_format: str = DEFAULT_UPLOAD_FORMAT,
+    ):
         self.enabled = enabled
         self.repo_id = repo_id
+        self.upload_format = upload_format
         self._queue: Queue[Optional[UploadJob]] = Queue()
         self._worker: Optional[threading.Thread] = None
         self._started = False
@@ -261,7 +350,8 @@ class AsyncUploadManager:
 
         json_files = sorted(RESULTS_DIR.glob("*.json"))
         parquet_files = sorted(RESULTS_DIR.glob("*.parquet"))
-        if not json_files and not parquet_files:
+        files_to_stage = json_files if self.upload_format == "json" else (json_files + parquet_files)
+        if not files_to_stage:
             return False
 
         self._job_counter += 1
@@ -269,14 +359,14 @@ class AsyncUploadManager:
         staging_dir = UPLOAD_STAGING_DIR / f"job_{job_id:04d}"
         staging_dir.mkdir(parents=True, exist_ok=False)
 
-        for src in json_files + parquet_files:
+        for src in files_to_stage:
             shutil.move(str(src), str(staging_dir / src.name))
 
         job = UploadJob(
             job_id=job_id,
             staging_dir=staging_dir,
-            json_count=len(json_files),
-            parquet_count=len(parquet_files),
+            json_count=sum(1 for src in files_to_stage if src.suffix == ".json"),
+            parquet_count=sum(1 for src in files_to_stage if src.suffix == ".parquet"),
             trigger=trigger,
         )
         self.start()
@@ -315,7 +405,12 @@ class AsyncUploadManager:
                     f"\n[后台上传] 开始任务 #{job.job_id} "
                     f"(触发: {job.trigger}, JSON={job.json_count}, Parquet={job.parquet_count})"
                 )
-                ok = _do_convert_and_upload_in_dir(job.staging_dir, upload=True, repo_id=self.repo_id)
+                ok = _process_artifacts_in_dir(
+                    job.staging_dir,
+                    upload=True,
+                    repo_id=self.repo_id,
+                    upload_format=self.upload_format,
+                )
                 if ok:
                     try:
                         if job.staging_dir.exists() and not any(job.staging_dir.iterdir()):
@@ -422,11 +517,11 @@ def main():
     parser.add_argument("range", nargs="?", default="all",
                         help="序号范围，如 1-20 或 1,5,10,15,20 或 all；默认 all")
     parser.add_argument("--batch-size", "-b", type=int, default=5,
-                        help="results 目录下 JSON 积累到此数时触发转换+上传（默认 5）")
+                        help="导出产物积累到此数时触发后续处理/上传（默认 5）")
     parser.add_argument("--no-upload", action="store_true",
                         help="只求解+转换，不上传到 HF")
     parser.add_argument("--convert-only", action="store_true",
-                        help="仅转换已有 JSON 并上传，不跑 solver")
+                        help="仅处理已有结果并上传，不跑 solver")
     parser.add_argument("--repo-id", type=str, default=None,
                         help="目标 Hugging Face dataset repo_id；不传则启动时交互输入")
     parser.add_argument("--dry-run", action="store_true",
@@ -436,19 +531,34 @@ def main():
     parser.add_argument("--thread-num", type=int, default=-1)
     parser.add_argument("--use-isomorphism", type=int, choices=[0, 1], default=1)
     parser.add_argument("--max-iteration", type=int, default=300)
-    parser.add_argument("--stall-timeout", type=int, default=20)
-    parser.add_argument("--stack-dump-timeout", type=int, default=30)
-    parser.add_argument("--capture-stacks-on-stall", dest="capture_stacks_on_stall", action="store_true")
-    parser.add_argument("--no-capture-stacks-on-stall", dest="capture_stacks_on_stall", action="store_false")
     parser.add_argument(
-        "--dump-format",
-        type=str,
-        default="parquet",
-        choices=SUPPORTED_DUMP_FORMATS,
-        help="透传给 auto_run_solver 的导出格式（默认: parquet）"
+        "--stall-timeout",
+        type=int,
+        default=10,
+        help="同一轮 exploitability 输出阶段停滞判定秒数（默认: 10）",
     )
-    parser.set_defaults(capture_stacks_on_stall=None)
+    parser.add_argument(
+        "--export-format",
+        "--dump-format",
+        dest="export_format",
+        type=str,
+        default=DEFAULT_EXPORT_FORMAT,
+        choices=SUPPORTED_EXPORT_FORMATS,
+        help=f"solver 导出格式（默认: {DEFAULT_EXPORT_FORMAT}）"
+    )
+    parser.add_argument(
+        "--upload-format",
+        type=str,
+        default=DEFAULT_UPLOAD_FORMAT,
+        choices=SUPPORTED_UPLOAD_FORMATS,
+        help=f"最终上传到 Hugging Face 的格式（默认: {DEFAULT_UPLOAD_FORMAT}）",
+    )
     args = parser.parse_args()
+
+    if not args.no_upload and not args.convert_only:
+        if args.upload_format == "json" and args.export_format != "json":
+            print("[Error] --upload-format json requires --export-format json")
+            sys.exit(1)
 
     try:
         total = len(_read_all_boards(args.file))
@@ -469,13 +579,17 @@ def main():
     has_remainder = last_batch_size > 0 and last_batch_size < batch_size and len(batches) > 1
 
     print("=" * 60)
-    print("Automatic Pipeline: Solver → Parquet Results → Upload to HuggingFace")
+    print("Automatic Pipeline: Solver Export → Format Processing → Hugging Face")
     print("=" * 60)
     print(f"Total Tasks: {len(indices)} boards")
     print(f"Solver Batches: {len(batches)}, max {batch_size} per batch")
-    print(f"Trigger Condition: When results count >= {batch_size}, move to background for processing and uploading")
+    print(f"Export Format: {args.export_format}")
+    print(f"Upload Format: {args.upload_format}")
+    print(f"Trigger Condition: When export artifacts count >= {batch_size}, move to background for processing and uploading")
+    if sys.platform == "win32" and args.export_format == "json" and args.upload_format == "parquet":
+        print("  (Windows solver exports JSON; pipeline will convert JSON to Parquet before upload)")
     if has_remainder:
-        print(f"  (Last batch has {last_batch_size} boards; any remaining JSON will be converted at the end)")
+        print(f"  (Last batch has {last_batch_size} boards; any remaining artifacts will be processed at the end)")
     print(f"Results Directory: {RESULTS_DIR}")
     if args.dry_run:
         print("\n[DRY RUN] Only preview, no execution")
@@ -535,14 +649,18 @@ def main():
         if not indices:
             print("[Info] Requested range is already complete in the target dataset")
 
-    upload_manager = AsyncUploadManager(enabled=not args.no_upload, repo_id=repo_id)
+    upload_manager = AsyncUploadManager(
+        enabled=not args.no_upload,
+        repo_id=repo_id,
+        upload_format=args.upload_format,
+    )
 
     if args.convert_only:
         print("\n[Mode] Only process existing results and upload (no solver)")
         if _count_json() == 0 and _count_parquet() == 0:
             print("[提示] results directory has no JSON or Parquet files")
             sys.exit(0)
-        _do_convert_and_upload(not args.no_upload, repo_id=repo_id)
+        _process_artifacts(not args.no_upload, repo_id=repo_id, upload_format=args.upload_format)
         print("\n[Completed]")
         sys.exit(0)
 
@@ -561,27 +679,28 @@ def main():
             "--use-isomorphism", str(args.use_isomorphism),
             "--max-iteration", str(args.max_iteration),
             "--stall-timeout", str(args.stall_timeout),
-            "--stack-dump-timeout", str(args.stack_dump_timeout),
-            "--dump-format", args.dump_format,
+            "--dump-format", args.export_format,
         ]
-        if args.capture_stacks_on_stall is True:
-            solver_cmd.append("--capture-stacks-on-stall")
-        elif args.capture_stacks_on_stall is False:
-            solver_cmd.append("--no-capture-stacks-on-stall")
         if not _run(solver_cmd):
             print(f"[Failed] Solver batch {i} not fully successful, continue to next batch")
 
         # 2. 检查 results 下积累的 JSON/Parquet 数量，达到阈值则处理/上传
         json_count = _count_json()
         parquet_count = _count_parquet()
-        if json_count >= batch_size or parquet_count >= batch_size:
-            print(f"\n[Trigger] results JSON={json_count}, Parquet={parquet_count} (threshold {batch_size})")
-            if json_count > 0:
-                print("[Convert] JSON → Parquet")
+        export_count = _count_export_files(args.export_format)
+        if export_count >= batch_size:
+            print(
+                f"\n[Trigger] export artifacts={export_count}, "
+                f"results JSON={json_count}, Parquet={parquet_count} (threshold {batch_size})"
+            )
+            if args.export_format == "json" and args.upload_format == "parquet" and json_count > 0:
+                print("[Convert] JSON -> Parquet before upload")
+            elif args.upload_format == "json":
+                print("[Process] Upload JSON files directly")
             else:
-                print("[Process] Directly upload Parquet files")
+                print("[Process] Upload Parquet files directly")
             if args.no_upload:
-                _do_convert_and_upload(False, repo_id=repo_id)
+                _process_artifacts(False, repo_id=repo_id, upload_format=args.upload_format)
             else:
                 if upload_manager.submit_results(f"Threshold {batch_size}"):
                     print("[Submitted] Background task submitted, continue to next batch")
@@ -592,7 +711,7 @@ def main():
     if json_count > 0 or parquet_count > 0:
         print(f"\n[Cleanup] results JSON={json_count}, Parquet={parquet_count}")
         if args.no_upload:
-            _do_convert_and_upload(False, repo_id=repo_id)
+            _process_artifacts(False, repo_id=repo_id, upload_format=args.upload_format)
         else:
             if upload_manager.submit_results("Cleanup"):
                 print("[Submitted] Cleanup task submitted, waiting for background upload to complete")
