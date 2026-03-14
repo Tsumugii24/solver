@@ -434,7 +434,9 @@ def main():
     # 透传给 auto_run_solver
     parser.add_argument("--file", type=str, default="cards.txt")
     parser.add_argument("--thread-num", type=int, default=-1)
+    parser.add_argument("--use-isomorphism", type=int, choices=[0, 1], default=1)
     parser.add_argument("--max-iteration", type=int, default=300)
+    parser.add_argument("--stall-timeout", type=int, default=180)
     parser.add_argument(
         "--dump-format",
         type=str,
@@ -552,7 +554,9 @@ def main():
             expr,
             "--file", args.file,
             "--thread-num", str(args.thread_num),
+            "--use-isomorphism", str(args.use_isomorphism),
             "--max-iteration", str(args.max_iteration),
+            "--stall-timeout", str(args.stall_timeout),
             "--dump-format", args.dump_format,
         ]
         if not _run(solver_cmd):

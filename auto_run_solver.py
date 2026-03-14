@@ -9,11 +9,13 @@ import os
 import sys
 import time
 import re
+import threading
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 import argparse
+from queue import Queue, Empty
 
 
 # ==================== 配置 ====================
@@ -36,6 +38,8 @@ RESULTS_DIR = SCRIPT_DIR / "results"
 CARDS_FILE = CARDS_DIR / "cards.txt"
 # 超时时间（秒）
 TIMEOUT = 7200  # 2小时
+# 无输出卡死判定时间（秒）
+STALL_TIMEOUT = 180
 # 最大重试次数
 MAX_RETRIES = 1
 # =============================================
@@ -76,7 +80,7 @@ set_thread_num {thread_num}
 set_accuracy {accuracy}
 set_max_iteration {max_iteration}
 set_print_interval {print_interval}
-set_use_isomorphism 1
+set_use_isomorphism {use_isomorphism}
 set_enable_range 1
 start_solve
 set_dump_format {dump_format}
@@ -371,6 +375,7 @@ def generate_config_file(
     print_interval: int = 10,
     range_oop: str = None,
     range_ip: str = None,
+    use_isomorphism: int = 1,
     dump_format: str = "parquet"
 ) -> Path:
     """
@@ -403,6 +408,7 @@ def generate_config_file(
         accuracy=accuracy,
         max_iteration=max_iteration,
         print_interval=print_interval,
+        use_isomorphism=use_isomorphism,
         dump_format=dump_format,
         output_file=output_file
     )
@@ -413,10 +419,56 @@ def generate_config_file(
     return config_path
 
 
+def _update_config_settings(
+    config_file: Path,
+    *,
+    use_isomorphism: Optional[int] = None,
+    thread_num: Optional[int] = None,
+) -> None:
+    """更新已生成配置文件中的少量关键参数，便于失败后安全重试。"""
+    content = config_file.read_text(encoding="utf-8")
+
+    if use_isomorphism is not None:
+        content = re.sub(
+            r"^set_use_isomorphism\s+\S+$",
+            f"set_use_isomorphism {use_isomorphism}",
+            content,
+            flags=re.MULTILINE,
+        )
+    if thread_num is not None:
+        content = re.sub(
+            r"^set_thread_num\s+\S+$",
+            f"set_thread_num {thread_num}",
+            content,
+            flags=re.MULTILINE,
+        )
+
+    config_file.write_text(content, encoding="utf-8")
+
+
+def _start_output_reader(process: subprocess.Popen) -> Queue:
+    """异步读取 solver 输出，避免主线程永久阻塞在 readline。"""
+    output_queue: Queue = Queue()
+
+    def _reader() -> None:
+        try:
+            assert process.stdout is not None
+            for line in iter(process.stdout.readline, ""):
+                output_queue.put(line)
+        finally:
+            output_queue.put(None)
+
+    threading.Thread(target=_reader, daemon=True).start()
+    return output_queue
+
+
 def run_solver_with_retry(
     config_file: Path,
     max_retries: int = MAX_RETRIES,
-    mode: str = "holdem"
+    mode: str = "holdem",
+    use_isomorphism: int = 1,
+    thread_num: int = -1,
+    stall_timeout: int = STALL_TIMEOUT,
 ) -> Tuple[bool, float, str, int]:
     """
     运行求解器，支持重试
@@ -431,6 +483,7 @@ def run_solver_with_retry(
     """
     retries = 0
     last_error = ""
+    fallback_applied = False
     
     while retries <= max_retries:
         if retries > 0:
@@ -455,11 +508,29 @@ def run_solver_with_retry(
                 cwd=str(RESULTS_DIR)
             )
             
-            # 实时打印进度
-            for line in process.stdout:
-                print(line, end='')
-            
-            process.wait(timeout=TIMEOUT)
+            output_queue = _start_output_reader(process)
+            last_output_time = time.time()
+            reached_eof = False
+
+            while True:
+                try:
+                    line = output_queue.get(timeout=1)
+                    if line is None:
+                        reached_eof = True
+                        break
+                    print(line, end="")
+                    last_output_time = time.time()
+                except Empty:
+                    if process.poll() is not None:
+                        break
+                    if stall_timeout > 0 and (time.time() - last_output_time) > stall_timeout:
+                        process.kill()
+                        raise RuntimeError(f"求解卡住超过 {stall_timeout} 秒无新输出")
+
+            if not reached_eof:
+                process.wait(timeout=TIMEOUT)
+            else:
+                process.wait(timeout=5)
             elapsed = time.time() - start_time
             
             if process.returncode == 0:
@@ -475,6 +546,25 @@ def run_solver_with_retry(
         except Exception as e:
             last_error = str(e)
             print(f"  [错误] {last_error}")
+
+        if (
+            not fallback_applied
+            and use_isomorphism == 1
+            and ("卡住" in last_error or "超时" in last_error)
+        ):
+            fallback_applied = True
+            use_isomorphism = 0
+            if thread_num == -1 or thread_num > 1:
+                thread_num = 1
+            print(
+                "  [降级重试] 检测到 solver 可能卡在特定牌面，"
+                f"切换到 use_isomorphism={use_isomorphism}, thread_num={thread_num}"
+            )
+            _update_config_settings(
+                config_file,
+                use_isomorphism=use_isomorphism,
+                thread_num=thread_num,
+            )
         
         retries += 1
     
@@ -696,10 +786,12 @@ def main():
     parser.add_argument("--pot", type=int, default=5, help="底池大小（默认: 5）")
     parser.add_argument("--stack", type=int, default=98, help="有效筹码（默认: 98）")
     parser.add_argument("--thread-num", type=int, default=-1, help="线程数（默认: -1，使用所有核心）")
+    parser.add_argument("--use-isomorphism", type=int, choices=[0, 1], default=1, help="是否启用花色同构（默认: 1）")
     parser.add_argument("--accuracy", type=float, default=1, help="精度（默认: 1）")
     parser.add_argument("--max-iteration", type=int, default=300, help="最大迭代次数（默认: 300）")
     parser.add_argument("--print-interval", type=int, default=10, help="打印间隔（默认: 10）")
     parser.add_argument("--max-retries", type=int, default=1, help="最大重试次数（默认: 1）")
+    parser.add_argument("--stall-timeout", type=int, default=STALL_TIMEOUT, help=f"无新输出时判定卡死的秒数（默认: {STALL_TIMEOUT}）")
     parser.add_argument(
         "--dump-format",
         type=str,
@@ -764,7 +856,11 @@ def main():
     
     # 筛选牌面
     boards_to_solve = [(i, all_boards[i - 1]) for i in indices]
-    print(f"[配置] thread_num={args.thread_num}, max_iteration={args.max_iteration}, dump_format={args.dump_format}")
+    print(
+        f"[配置] thread_num={args.thread_num}, "
+        f"use_isomorphism={args.use_isomorphism}, "
+        f"max_iteration={args.max_iteration}, dump_format={args.dump_format}"
+    )
     print(f"[容错] 最大重试次数: {args.max_retries}")
     
     # 显示牌面列表
@@ -799,6 +895,7 @@ def main():
                     accuracy=args.accuracy,
                     max_iteration=args.max_iteration,
                     print_interval=args.print_interval,
+                    use_isomorphism=args.use_isomorphism,
                     dump_format=args.dump_format
                 )
                 print(f"[配置] 生成: {config_file.name}")
@@ -813,7 +910,10 @@ def main():
             # 运行求解器
             success, elapsed, error, retries = run_solver_with_retry(
                 config_file=config_file,
-                max_retries=args.max_retries
+                max_retries=args.max_retries,
+                use_isomorphism=args.use_isomorphism,
+                thread_num=args.thread_num,
+                stall_timeout=args.stall_timeout,
             )
             
             result = SolveResult(

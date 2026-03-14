@@ -405,6 +405,9 @@ BestResponse::showdownBestResponse(shared_ptr<ShowdownNode> node, int player,con
     float lose_payoff = node->get_payoffs(ShowdownNode::ShowDownResult::NOTTIE,1 - player)[player];
 
     vector<float> payoffs = vector<float>(player_hands[player]);
+    if (player_combs.empty() || oppo_combs.empty()) {
+        return payoffs;
+    }
 
     // 计算胜利时的payoff
     float winsum = 0;
@@ -434,8 +437,8 @@ BestResponse::showdownBestResponse(shared_ptr<ShowdownNode> node, int player,con
     float losssum = 0;
     vector<float> card_losssum(52);
 
-    j = oppo_combs.size() - 1;
-    for(int i = player_combs.size() - 1;i >= 0;i --){
+    j = static_cast<int>(oppo_combs.size()) - 1;
+    for(int i = static_cast<int>(player_combs.size()) - 1; i >= 0; i --){
         const RiverCombs& one_player_comb = player_combs[i];
         while (j >= 0 && one_player_comb.rank > oppo_combs[j].rank){
             const RiverCombs& one_oppo_comb = oppo_combs[j];

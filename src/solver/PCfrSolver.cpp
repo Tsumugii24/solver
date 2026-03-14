@@ -671,6 +671,12 @@ PCfrSolver::showdownUtility(int player, shared_ptr<ShowdownNode> node, const vec
 
     vector<float> payoffs = vector<float>(player_private_cards.size());
     vector<float> equity;  // 只在启用 equity 时分配
+    if (player_combs.empty() || oppo_combs.empty()) {
+        if (this->enable_equity) {
+            equity = vector<float>(player_private_cards.size(), 0.0f);
+        }
+        return CfrResult(std::move(payoffs), std::move(equity));
+    }
     
     // 只在启用 equity 时分配临时存储（方案 B：和 EV 一致，不标准化）
     vector<float> effective_winsum_arr;
@@ -734,8 +740,8 @@ PCfrSolver::showdownUtility(int player, shared_ptr<ShowdownNode> node, const vec
     vector<float>& card_losssum = card_winsum;
     fill(card_losssum.begin(),card_losssum.end(),0);
 
-    j = oppo_combs.size() - 1;
-    for(int i = player_combs.size() - 1;i >= 0;i --){
+    j = static_cast<int>(oppo_combs.size()) - 1;
+    for(int i = static_cast<int>(player_combs.size()) - 1; i >= 0; i --){
         const RiverCombs& one_player_comb = player_combs[i];
         while (j >= 0 && one_player_comb.rank > oppo_combs[j].rank){
             const RiverCombs& one_oppo_comb = oppo_combs[j];
@@ -1338,4 +1344,3 @@ json PCfrSolver::dumps(bool with_status,int depth) {
     
     return std::move(retjson);
 }
-
