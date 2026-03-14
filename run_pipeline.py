@@ -436,7 +436,10 @@ def main():
     parser.add_argument("--thread-num", type=int, default=-1)
     parser.add_argument("--use-isomorphism", type=int, choices=[0, 1], default=1)
     parser.add_argument("--max-iteration", type=int, default=300)
-    parser.add_argument("--stall-timeout", type=int, default=180)
+    parser.add_argument("--stall-timeout", type=int, default=20)
+    parser.add_argument("--stack-dump-timeout", type=int, default=30)
+    parser.add_argument("--capture-stacks-on-stall", dest="capture_stacks_on_stall", action="store_true")
+    parser.add_argument("--no-capture-stacks-on-stall", dest="capture_stacks_on_stall", action="store_false")
     parser.add_argument(
         "--dump-format",
         type=str,
@@ -444,6 +447,7 @@ def main():
         choices=SUPPORTED_DUMP_FORMATS,
         help="透传给 auto_run_solver 的导出格式（默认: parquet）"
     )
+    parser.set_defaults(capture_stacks_on_stall=None)
     args = parser.parse_args()
 
     try:
@@ -557,8 +561,13 @@ def main():
             "--use-isomorphism", str(args.use_isomorphism),
             "--max-iteration", str(args.max_iteration),
             "--stall-timeout", str(args.stall_timeout),
+            "--stack-dump-timeout", str(args.stack_dump_timeout),
             "--dump-format", args.dump_format,
         ]
+        if args.capture_stacks_on_stall is True:
+            solver_cmd.append("--capture-stacks-on-stall")
+        elif args.capture_stacks_on_stall is False:
+            solver_cmd.append("--no-capture-stacks-on-stall")
         if not _run(solver_cmd):
             print(f"[Failed] Solver batch {i} not fully successful, continue to next batch")
 
