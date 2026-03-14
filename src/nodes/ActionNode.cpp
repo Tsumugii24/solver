@@ -32,9 +32,11 @@ GameTreeNode::GameTreeNodeType ActionNode::getType() {
 }
 
 shared_ptr<Trainable> ActionNode::getTrainable(int i,bool create_on_site) {
-    if(i > this->trainables.size()){
-        throw runtime_error(fmt::format("size unacceptable {} > {} ",i,this->trainables.size()));
+    if(i < 0 || static_cast<size_t>(i) >= this->trainables.size()){
+        throw runtime_error(fmt::format("size unacceptable {} >= {}", i, this->trainables.size()));
     }
+
+    std::lock_guard<std::mutex> lock(this->trainables_mutex);
     if(this->trainables[i] == nullptr && create_on_site){
         this->trainables[i] = make_shared<DiscountedCfrTrainable>(player_privates,*this);
     }

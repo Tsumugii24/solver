@@ -32,13 +32,13 @@ RiverRangeManager::getRiverCombos(int player, const vector<PrivateCards> &preflo
 
     uint64_t key = board_long;
 
-    this->maplock->lock();
-    if (riverRanges->find(key) != riverRanges->end()) {
-        const vector<RiverCombs> &retval = (*riverRanges)[key];
-        this->maplock->unlock();
-        return retval;
+    {
+        std::lock_guard<std::mutex> lock(*this->maplock);
+        auto it = riverRanges->find(key);
+        if (it != riverRanges->end()) {
+            return it->second;
+        }
     }
-    this->maplock->unlock();
 
     int count = 0;
 
@@ -73,9 +73,9 @@ RiverRangeManager::getRiverCombos(int player, const vector<PrivateCards> &preflo
         return lhs.rank > rhs.rank;
     });
 
-    this->maplock->lock();
-    (*riverRanges)[key] =  std::move(riverCombos);
-    this->maplock->unlock();
-
-    return (*riverRanges)[key];
+    {
+        std::lock_guard<std::mutex> lock(*this->maplock);
+        auto [it, inserted] = riverRanges->emplace(key, std::move(riverCombos));
+        return it->second;
+    }
 }

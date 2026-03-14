@@ -335,7 +335,7 @@ equity = win_prob + tie_prob / 2
 
 > 💡 **提示**:
 > - 未指定 `set_dump_format` 时，默认使用 `parquet`
-> - Windows: 支持 `json`、`parquet`
+> - Windows: 支持 `json`
 > - Linux: 支持 `json`、`parquet`、`parquet_native`
 > - `parquet` 与现有 Python 后处理生成的 Parquet 逻辑兼容；`parquet_native` 会使用结构化 schema，并由新版读取脚本自动识别。
 
