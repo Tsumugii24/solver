@@ -602,6 +602,15 @@ def _send_signal_to_thread(pid: int, tid: int, sig: int) -> None:
     os.kill(tid, sig)
 
 
+def _internal_stack_dump_signals() -> List[int]:
+    signals_to_try: List[int] = []
+    for sig_name in ("SIGUSR2", "SIGUSR1"):
+        sig_value = getattr(signal, sig_name, None)
+        if sig_value is not None and sig_value not in signals_to_try:
+            signals_to_try.append(sig_value)
+    return signals_to_try
+
+
 def _trigger_internal_stack_dump(pid: int, output_path: Path, wait_seconds: float = 1.5) -> bool:
     if IS_WINDOWS:
         return False
@@ -615,18 +624,22 @@ def _trigger_internal_stack_dump(pid: int, output_path: Path, wait_seconds: floa
     except OSError:
         pass
 
-    triggered = False
-    for tid in tids:
-        try:
-            _send_signal_to_thread(pid, tid, signal.SIGUSR1)
-            triggered = True
-        except Exception:
-            continue
+    for sig_value in _internal_stack_dump_signals():
+        triggered = False
+        for tid in tids:
+            try:
+                _send_signal_to_thread(pid, tid, sig_value)
+                triggered = True
+            except Exception:
+                continue
 
-    if triggered and wait_seconds > 0:
-        time.sleep(wait_seconds)
+        if triggered and wait_seconds > 0:
+            time.sleep(wait_seconds)
 
-    return output_path.exists()
+        if output_path.exists():
+            return True
+
+    return False
 
 
 def _capture_stall_stack(

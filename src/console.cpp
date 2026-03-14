@@ -55,6 +55,7 @@ void installDebugSignalHandlers() {
     sigemptyset(&action.sa_mask);
     action.sa_flags = SA_RESTART;
     sigaction(SIGUSR1, &action, nullptr);
+    sigaction(SIGUSR2, &action, nullptr);
 }
 }
 #endif
