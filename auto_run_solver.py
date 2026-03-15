@@ -420,33 +420,6 @@ def generate_config_file(
     return config_path
 
 
-def _update_config_settings(
-    config_file: Path,
-    *,
-    use_isomorphism: Optional[int] = None,
-    thread_num: Optional[int] = None,
-) -> None:
-    """更新已生成配置文件中的少量关键参数，便于失败后安全重试。"""
-    content = config_file.read_text(encoding="utf-8")
-
-    if use_isomorphism is not None:
-        content = re.sub(
-            r"^set_use_isomorphism\s+\S+$",
-            f"set_use_isomorphism {use_isomorphism}",
-            content,
-            flags=re.MULTILINE,
-        )
-    if thread_num is not None:
-        content = re.sub(
-            r"^set_thread_num\s+\S+$",
-            f"set_thread_num {thread_num}",
-            content,
-            flags=re.MULTILINE,
-        )
-
-    config_file.write_text(content, encoding="utf-8")
-
-
 def _start_output_reader(process: subprocess.Popen) -> Queue:
     """异步读取 solver 输出，避免主线程永久阻塞在 readline。"""
     output_queue: Queue = Queue()
@@ -549,31 +522,30 @@ def run_solver_with_retry(
     """
     retries = 0
     last_error = ""
-    fallback_applied = False
-    
+
     while retries <= max_retries:
         if retries > 0:
             print(f"  [重试 {retries}/{max_retries}] 等待 1 秒后重试...")
             time.sleep(1)
-        
+
         start_time = time.time()
-        
+
         try:
             config_file_abs = str(config_file.resolve())
             cmd = [SOLVER_EXE, "-i", config_file_abs, "-r", RESOURCE_DIR, "-m", mode]
-            
+
             # 确保结果目录存在
             RESULTS_DIR.mkdir(exist_ok=True)
-            
+
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                cwd=str(RESULTS_DIR)
+                cwd=str(RESULTS_DIR),
             )
-            
+
             output_queue = _start_output_reader(process)
             watchdog = _new_iteration_watchdog()
             reached_eof = False
@@ -606,13 +578,13 @@ def run_solver_with_retry(
             else:
                 process.wait(timeout=5)
             elapsed = time.time() - start_time
-            
+
             if process.returncode == 0:
                 return True, elapsed, "", retries
-            else:
-                last_error = f"返回码: {process.returncode}"
-                print(f"  [错误] {last_error}")
-                
+
+            last_error = f"返回码: {process.returncode}"
+            print(f"  [错误] {last_error}")
+
         except subprocess.TimeoutExpired:
             process.kill()
             last_error = f"求解超时 (>{TIMEOUT}秒)"
@@ -621,27 +593,8 @@ def run_solver_with_retry(
             last_error = str(e)
             print(f"  [错误] {last_error}")
 
-        if (
-            not fallback_applied
-            and use_isomorphism == 1
-            and ("卡住" in last_error or "超时" in last_error)
-        ):
-            fallback_applied = True
-            use_isomorphism = 0
-            if thread_num == -1 or thread_num > 1:
-                thread_num = 1
-            print(
-                "  [降级重试] 检测到 solver 可能卡在特定牌面，"
-                f"切换到 use_isomorphism={use_isomorphism}, thread_num={thread_num}"
-            )
-            _update_config_settings(
-                config_file,
-                use_isomorphism=use_isomorphism,
-                thread_num=thread_num,
-            )
-        
         retries += 1
-    
+
     return False, 0, last_error, retries - 1
 
 
