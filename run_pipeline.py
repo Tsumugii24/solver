@@ -532,6 +532,11 @@ def main():
     parser.add_argument("--use-isomorphism", type=int, choices=[0, 1], default=1)
     parser.add_argument("--max-iteration", type=int, default=300)
     parser.add_argument(
+        "--estimate-memory",
+        action="store_true",
+        help="在 solver build_tree 后执行 estimate_memory 并输出内存估算（默认关闭）",
+    )
+    parser.add_argument(
         "--stall-timeout",
         type=int,
         default=10,
@@ -585,6 +590,7 @@ def main():
     print(f"Solver Batches: {len(batches)}, max {batch_size} per batch")
     print(f"Export Format: {args.export_format}")
     print(f"Upload Format: {args.upload_format}")
+    print(f"Estimate Memory: {'enabled' if args.estimate_memory else 'disabled'}")
     print(f"Trigger Condition: When export artifacts count >= {batch_size}, move to background for processing and uploading")
     if sys.platform == "win32" and args.export_format == "json" and args.upload_format == "parquet":
         print("  (Windows solver exports JSON; pipeline will convert JSON to Parquet before upload)")
@@ -681,6 +687,8 @@ def main():
             "--stall-timeout", str(args.stall_timeout),
             "--dump-format", args.export_format,
         ]
+        if args.estimate_memory:
+            solver_cmd.append("--estimate-memory")
         if not _run(solver_cmd):
             print(f"[Failed] Solver batch {i} not fully successful, continue to next batch")
 

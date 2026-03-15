@@ -5,6 +5,7 @@
 #ifndef TEXASSOLVER_POKERSOLVER_H
 #define TEXASSOLVER_POKERSOLVER_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include "compairer/Dic5Compairer.h"
@@ -14,6 +15,28 @@
 #include "runtime/ExportFormat.h"
 #include "library.h"
 using namespace std;
+
+struct SolverMemoryEstimate {
+    bool available = false;
+    uint64_t tree_bytes = 0;
+    uint64_t solver_state_bytes = 0;
+    uint64_t trainable_slot_bytes = 0;
+    uint64_t trainable_data_bytes = 0;
+    uint64_t river_cache_bytes = 0;
+    uint64_t working_bytes = 0;
+    uint64_t safety_margin_bytes = 0;
+    uint64_t action_node_count = 0;
+    uint64_t chance_node_count = 0;
+    uint64_t max_actions_per_node = 0;
+
+    [[nodiscard]] uint64_t persistent_lower_bound_bytes() const {
+        return tree_bytes + solver_state_bytes + trainable_slot_bytes + trainable_data_bytes;
+    }
+
+    [[nodiscard]] uint64_t likely_peak_bytes() const {
+        return persistent_lower_bound_bytes() + river_cache_bytes + working_bytes + safety_margin_bytes;
+    }
+};
 
 class PokerSolver {
 public:
@@ -43,10 +66,11 @@ public:
             float accuracy,
             bool use_isomorphism,
             int threads,
-            bool enable_equity = false,
-            bool enable_range = false
-            );
+             bool enable_equity = false,
+             bool enable_range = false
+             );
     void dump_strategy(string dump_file,int dump_rounds,SolverDumpFormat dump_format = SolverDumpFormat::PARQUET_JSON);
+    SolverMemoryEstimate estimate_memory_details(string p1_range, string p2_range, string boards);
     long long estimate_tree_memory(string p1_range, string p2_range, string boards);
     Deck& getDeck() { return deck; }
 private:

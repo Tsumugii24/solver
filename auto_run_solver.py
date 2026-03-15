@@ -77,7 +77,7 @@ set_bet_sizes ip,river,allin
 set_allin_threshold 0.5
 set_raise_limit 3
 build_tree
-set_thread_num {thread_num}
+{estimate_memory_line}set_thread_num {thread_num}
 set_accuracy {accuracy}
 set_max_iteration {max_iteration}
 set_print_interval {print_interval}
@@ -377,7 +377,8 @@ def generate_config_file(
     range_oop: str = None,
     range_ip: str = None,
     use_isomorphism: int = 1,
-    dump_format: str = DEFAULT_DUMP_FORMAT
+    dump_format: str = DEFAULT_DUMP_FORMAT,
+    estimate_memory: bool = False,
 ) -> Path:
     """
     生成配置文件
@@ -398,7 +399,8 @@ def generate_config_file(
     filename = board_to_filename(board)
     config_path = output_dir / f"{filename}.txt"
     output_file = f"{filename}{dump_format_to_extension(dump_format)}"
-    
+    estimate_memory_line = "estimate_memory\n" if estimate_memory else ""
+
     config_content = CONFIG.format(
         pot=pot,
         effective_stack=effective_stack,
@@ -410,6 +412,7 @@ def generate_config_file(
         max_iteration=max_iteration,
         print_interval=print_interval,
         use_isomorphism=use_isomorphism,
+        estimate_memory_line=estimate_memory_line,
         dump_format=dump_format,
         output_file=output_file
     )
@@ -831,6 +834,11 @@ def main():
         choices=SUPPORTED_DUMP_FORMATS,
         help=f"导出格式（默认: {DEFAULT_DUMP_FORMAT}）"
     )
+    parser.add_argument(
+        "--estimate-memory",
+        action="store_true",
+        help="在 build_tree 后执行 estimate_memory 并输出内存估算（默认关闭）",
+    )
     parser.add_argument("--interactive", "-i", action="store_true", help="交互模式，开始前等待确认（默认跳过确认）")
     
     args = parser.parse_args()
@@ -891,7 +899,8 @@ def main():
     print(
         f"[配置] thread_num={args.thread_num}, "
         f"use_isomorphism={args.use_isomorphism}, "
-        f"max_iteration={args.max_iteration}, dump_format={args.dump_format}"
+        f"max_iteration={args.max_iteration}, dump_format={args.dump_format}, "
+        f"estimate_memory={1 if args.estimate_memory else 0}"
     )
     print(f"[容错] 最大重试次数: {args.max_retries}")
     
@@ -928,7 +937,8 @@ def main():
                     max_iteration=args.max_iteration,
                     print_interval=args.print_interval,
                     use_isomorphism=args.use_isomorphism,
-                    dump_format=args.dump_format
+                    dump_format=args.dump_format,
+                    estimate_memory=args.estimate_memory,
                 )
                 print(f"[配置] 生成: {config_file.name}")
             except Exception as e:

@@ -215,9 +215,27 @@ void CommandLineTool::processCommand(string input) {
         );
     }else if(command == "estimate_memory"){
         // 单独的内存估算命令
-        long long estimated_memory = this->ps.estimate_tree_memory(this->range_ip, this->range_oop, this->board);
-        double memory_gb = (double)estimated_memory * sizeof(float) / (1024.0 * 1024.0 * 1024.0);
-        cout << fmt::format("Estimated memory usage: {:.2f} GB ({} floats)", memory_gb, estimated_memory) << endl;
+        const SolverMemoryEstimate estimate = this->ps.estimate_memory_details(this->range_ip, this->range_oop, this->board);
+        if(!estimate.available) {
+            return;
+        }
+        auto bytes_to_gb = [](uint64_t bytes) {
+            return static_cast<double>(bytes) / (1024.0 * 1024.0 * 1024.0);
+        };
+        cout << "Estimated memory usage (discounted_cfr):" << endl;
+        cout << fmt::format("  Tree structure: {:.2f} GB", bytes_to_gb(estimate.tree_bytes)) << endl;
+        cout << fmt::format("  Solver state: {:.2f} GB", bytes_to_gb(estimate.solver_state_bytes)) << endl;
+        cout << fmt::format("  Trainable slots: {:.2f} GB", bytes_to_gb(estimate.trainable_slot_bytes)) << endl;
+        cout << fmt::format("  Trainable data: {:.2f} GB", bytes_to_gb(estimate.trainable_data_bytes)) << endl;
+        cout << fmt::format("  River cache (iter 0 / BR): {:.2f} GB", bytes_to_gb(estimate.river_cache_bytes)) << endl;
+        cout << fmt::format("  Working buffers: {:.2f} GB", bytes_to_gb(estimate.working_bytes)) << endl;
+        cout << fmt::format("  Safety margin: {:.2f} GB", bytes_to_gb(estimate.safety_margin_bytes)) << endl;
+        cout << fmt::format("  Persistent lower bound: {:.2f} GB", bytes_to_gb(estimate.persistent_lower_bound_bytes())) << endl;
+        cout << fmt::format("  Likely peak while solving: {:.2f} GB", bytes_to_gb(estimate.likely_peak_bytes())) << endl;
+        cout << fmt::format("  Action nodes: {}, chance nodes: {}, max branching: {}",
+                             estimate.action_node_count,
+                             estimate.chance_node_count,
+                             estimate.max_actions_per_node) << endl;
     }else if(command == "dump_result"){
         string output_file = paramstr;
         if(!solverDumpFormatSupportedOnCurrentPlatform(this->dump_format)) {
