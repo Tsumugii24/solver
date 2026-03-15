@@ -22,7 +22,35 @@ CONFIG_DIR = WORK_DIR / "configs"
 LOG_DIR = WORK_DIR / "logs"
 RESULT_DIR = WORK_DIR / "results"
 RESOURCE_DIR = ROOT_DIR / "resources"
-SOLVER_EXE = ROOT_DIR / "install" / ("console_solver.exe" if sys.platform == "win32" else "console_solver")
+
+
+def resolve_solver_exe() -> Path:
+    candidates: list[Path] = []
+    if sys.platform == "win32":
+        candidates.extend(
+            [
+                ROOT_DIR / "build" / "console_solver.exe",
+                ROOT_DIR / "install" / "console_solver.exe",
+                ROOT_DIR / "build" / "console_solver",
+                ROOT_DIR / "install" / "console_solver",
+            ]
+        )
+    else:
+        candidates.extend(
+            [
+                ROOT_DIR / "install" / "console_solver",
+                ROOT_DIR / "build" / "console_solver",
+                ROOT_DIR / "install" / "console_solver.exe",
+                ROOT_DIR / "build" / "console_solver.exe",
+            ]
+        )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+SOLVER_EXE = resolve_solver_exe()
 
 CONFIG_TEMPLATE = """set_pot {pot}
 set_effective_stack {effective_stack}
@@ -50,9 +78,9 @@ set_bet_sizes ip,river,bet,30
 set_bet_sizes ip,river,raise,75
 set_bet_sizes ip,river,allin
 set_allin_threshold 0.5
-set_raise_limit 1
+set_raise_limit {raise_limit}
 build_tree
-set_thread_num {thread_num}
+{estimate_memory_line}set_thread_num {thread_num}
 set_accuracy {accuracy}
 set_max_iteration {max_iteration}
 set_print_interval {print_interval}
@@ -160,12 +188,15 @@ def write_config(index: int, board: str, args: argparse.Namespace) -> tuple[Path
     output_name = f"{index:04d}_{board_name}{dump_format_to_extension(args.dump_format)}"
     config_path = CONFIG_DIR / f"{index:04d}_{board_name}.txt"
     result_path = RESULT_DIR / output_name
+    estimate_memory_line = "estimate_memory\n" if args.estimate_memory else ""
     config_text = CONFIG_TEMPLATE.format(
         pot=args.pot,
         effective_stack=args.stack,
         board=board,
         range_oop=args.range_oop,
         range_ip=args.range_ip,
+        raise_limit=args.raise_limit,
+        estimate_memory_line=estimate_memory_line,
         thread_num=args.thread_num,
         accuracy=args.accuracy,
         max_iteration=args.max_iteration,
@@ -417,6 +448,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--stack", type=int, default=98)
     parser.add_argument("--thread-num", type=int, default=-1)
     parser.add_argument("--use-isomorphism", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--raise-limit", type=int, default=1)
     parser.add_argument("--accuracy", type=float, default=1.0)
     parser.add_argument("--max-iteration", type=int, default=1)
     parser.add_argument("--print-interval", type=int, default=1)
@@ -424,6 +456,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--iter-stage-timeout", type=int, default=8)
     parser.add_argument("--mode", default="holdem")
     parser.add_argument("--dump-format", choices=["json", "parquet", "parquet_native"], default="parquet")
+    parser.add_argument("--estimate-memory", action="store_true")
     return parser
 
 
@@ -462,6 +495,7 @@ def main() -> int:
     print(f"thread_num={args.thread_num}")
     print(f"use_isomorphism={args.use_isomorphism}")
     print(f"max_iteration={args.max_iteration}")
+    print(f"estimate_memory={args.estimate_memory}")
     print(f"stall_timeout={args.stall_timeout}")
     print(f"iter_stage_timeout={args.iter_stage_timeout}")
     print(f"dump_format={args.dump_format}")
@@ -480,3 +514,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

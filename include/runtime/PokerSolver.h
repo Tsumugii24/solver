@@ -17,7 +17,11 @@
 using namespace std;
 
 struct SolverMemoryEstimate {
+    static constexpr uint64_t kEmpiricalPeakNumerator = 65;
+    static constexpr uint64_t kEmpiricalPeakDenominator = 100;
+
     bool available = false;
+    uint64_t original_texassolver_heuristic_bytes = 0;
     uint64_t tree_bytes = 0;
     uint64_t solver_state_bytes = 0;
     uint64_t trainable_slot_bytes = 0;
@@ -35,6 +39,16 @@ struct SolverMemoryEstimate {
 
     [[nodiscard]] uint64_t likely_peak_bytes() const {
         return persistent_lower_bound_bytes() + river_cache_bytes + working_bytes + safety_margin_bytes;
+    }
+
+    [[nodiscard]] uint64_t calibrated_peak_bytes() const {
+        return original_texassolver_heuristic_bytes > 0
+               ? (original_texassolver_heuristic_bytes * kEmpiricalPeakNumerator) / kEmpiricalPeakDenominator
+               : likely_peak_bytes();
+    }
+
+    [[nodiscard]] uint64_t practical_peak_bytes() const {
+        return calibrated_peak_bytes();
     }
 };
 

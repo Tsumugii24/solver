@@ -223,15 +223,19 @@ void CommandLineTool::processCommand(string input) {
             return static_cast<double>(bytes) / (1024.0 * 1024.0 * 1024.0);
         };
         cout << "Estimated memory usage (discounted_cfr):" << endl;
-        cout << fmt::format("  Tree structure: {:.2f} GB", bytes_to_gb(estimate.tree_bytes)) << endl;
-        cout << fmt::format("  Solver state: {:.2f} GB", bytes_to_gb(estimate.solver_state_bytes)) << endl;
-        cout << fmt::format("  Trainable slots: {:.2f} GB", bytes_to_gb(estimate.trainable_slot_bytes)) << endl;
-        cout << fmt::format("  Trainable data: {:.2f} GB", bytes_to_gb(estimate.trainable_data_bytes)) << endl;
-        cout << fmt::format("  River cache (iter 0 / BR): {:.2f} GB", bytes_to_gb(estimate.river_cache_bytes)) << endl;
-        cout << fmt::format("  Working buffers: {:.2f} GB", bytes_to_gb(estimate.working_bytes)) << endl;
-        cout << fmt::format("  Safety margin: {:.2f} GB", bytes_to_gb(estimate.safety_margin_bytes)) << endl;
+        cout << fmt::format("  Recommended value (Practical peak estimate): {:.2f} GB", bytes_to_gb(estimate.practical_peak_bytes())) << endl;
         cout << fmt::format("  Persistent lower bound: {:.2f} GB", bytes_to_gb(estimate.persistent_lower_bound_bytes())) << endl;
-        cout << fmt::format("  Likely peak while solving: {:.2f} GB", bytes_to_gb(estimate.likely_peak_bytes())) << endl;
+        cout << fmt::format("  Reference - Original TexasSolver heuristic: {:.2f} GB", bytes_to_gb(estimate.original_texassolver_heuristic_bytes)) << endl;
+        cout << fmt::format("  Calibrated peak estimate (~0.65x heuristic): {:.2f} GB", bytes_to_gb(estimate.calibrated_peak_bytes())) << endl;
+        cout << fmt::format("  Reference - Conservative peak envelope: {:.2f} GB", bytes_to_gb(estimate.likely_peak_bytes())) << endl;
+        cout << "  Breakdown:" << endl;
+        cout << fmt::format("    Tree structure: {:.2f} GB", bytes_to_gb(estimate.tree_bytes)) << endl;
+        cout << fmt::format("    Solver state: {:.2f} GB", bytes_to_gb(estimate.solver_state_bytes)) << endl;
+        cout << fmt::format("    Trainable slots: {:.2f} GB", bytes_to_gb(estimate.trainable_slot_bytes)) << endl;
+        cout << fmt::format("    Trainable data: {:.2f} GB", bytes_to_gb(estimate.trainable_data_bytes)) << endl;
+        cout << fmt::format("    River cache (iter 0 / BR): {:.2f} GB", bytes_to_gb(estimate.river_cache_bytes)) << endl;
+        cout << fmt::format("    Working buffers: {:.2f} GB", bytes_to_gb(estimate.working_bytes)) << endl;
+        cout << fmt::format("    Safety margin: {:.2f} GB", bytes_to_gb(estimate.safety_margin_bytes)) << endl;
         cout << fmt::format("  Action nodes: {}, chance nodes: {}, max branching: {}",
                              estimate.action_node_count,
                              estimate.chance_node_count,

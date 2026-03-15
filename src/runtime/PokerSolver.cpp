@@ -354,7 +354,7 @@ const shared_ptr<GameTree> &PokerSolver::getGameTree() const {
 
 long long PokerSolver::estimate_tree_memory(string p1_range, string p2_range, string boards) {
     SolverMemoryEstimate estimate = this->estimate_memory_details(std::move(p1_range), std::move(p2_range), std::move(boards));
-    return static_cast<long long>(estimate.likely_peak_bytes() / sizeof(float));
+    return static_cast<long long>(estimate.practical_peak_bytes() / sizeof(float));
 }
 
 SolverMemoryEstimate PokerSolver::estimate_memory_details(string p1_range, string p2_range, string boards) {
@@ -382,6 +382,13 @@ SolverMemoryEstimate PokerSolver::estimate_memory_details(string p1_range, strin
     const shared_ptr<GameTreeNode> root = current_tree->getRoot();
     const GameTreeNode::GameRound root_round = root->getRound();
     estimate.available = true;
+    estimate.original_texassolver_heuristic_bytes = bytes_from_floats(
+            current_tree->estimate_tree_memory(
+                    remaining_deck_size,
+                    static_cast<int>(range1.size()),
+                    static_cast<int>(range2.size())
+            )
+    );
 
     TreeEstimateAccumulator acc;
     acc.tree_bytes += sizeof(GameTree);
