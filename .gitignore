@@ -8,3 +8,4 @@ build/
 install/
 _pycache_/
 __pycache__/
+tmp_log.txt
