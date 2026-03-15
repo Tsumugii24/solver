@@ -539,14 +539,14 @@ def main():
     parser.add_argument(
         "--stall-timeout",
         type=int,
-        default=10,
-        help="同一轮 exploitability 输出阶段停滞判定秒数（默认: 10）",
+        default=None,
+        help="同一轮 exploitability 输出阶段停滞判定秒数（默认: 使用 auto_run_solver.py 中的默认值）",
     )
     parser.add_argument(
         "--no-output-timeout",
         type=int,
-        default=180,
-        help="连续无输出停滞判定秒数（默认: 180）",
+        default=None,
+        help="连续无输出停滞判定秒数（默认: 使用 auto_run_solver.py 中的默认值）",
     )
     parser.add_argument(
         "--export-format",
@@ -690,10 +690,12 @@ def main():
             "--thread-num", str(args.thread_num),
             "--use-isomorphism", str(args.use_isomorphism),
             "--max-iteration", str(args.max_iteration),
-            "--stall-timeout", str(args.stall_timeout),
-            "--no-output-timeout", str(args.no_output_timeout),
             "--dump-format", args.export_format,
         ]
+        if args.stall_timeout is not None:
+            solver_cmd.extend(["--stall-timeout", str(args.stall_timeout)])
+        if args.no_output_timeout is not None:
+            solver_cmd.extend(["--no-output-timeout", str(args.no_output_timeout)])
         if args.estimate_memory:
             solver_cmd.append("--estimate-memory")
         if not _run(solver_cmd):
