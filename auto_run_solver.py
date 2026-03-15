@@ -39,7 +39,9 @@ CARDS_FILE = CARDS_DIR / "cards.txt"
 # 超时时间（秒）
 TIMEOUT = 7200  # 2小时
 # 无输出卡死判定时间（秒）
-STALL_TIMEOUT = 10
+STALL_TIMEOUT = 15
+# 连续无输出停滞判定时间（秒）
+NO_OUTPUT_TIMEOUT = 180
 # 最大重试次数
 MAX_RETRIES = 0
 # =============================================
@@ -511,6 +513,7 @@ def run_solver_with_retry(
     use_isomorphism: int = 1,
     thread_num: int = -1,
     stall_timeout: int = STALL_TIMEOUT,
+    no_output_timeout: int = NO_OUTPUT_TIMEOUT,
 ) -> Tuple[bool, float, str, int]:
     """
     运行求解器，支持重试
@@ -552,6 +555,7 @@ def run_solver_with_retry(
             output_queue = _start_output_reader(process)
             watchdog = _new_iteration_watchdog()
             reached_eof = False
+            last_output_at = time.time()
 
             while True:
                 try:
@@ -560,7 +564,9 @@ def run_solver_with_retry(
                         reached_eof = True
                         break
                     print(line, end="")
-                    _update_iteration_watchdog(watchdog, line, time.time())
+                    now = time.time()
+                    last_output_at = now
+                    _update_iteration_watchdog(watchdog, line, now)
                 except Empty:
                     if process.poll() is not None:
                         break
@@ -574,6 +580,14 @@ def run_solver_with_retry(
                         _terminate_process(process)
                         raise RuntimeError(
                             f"求解卡住：Iter {watchdog['current_iter']} 等待 {pending_stage} 超过 {stall_timeout} 秒"
+                        )
+                    if (
+                        no_output_timeout > 0
+                        and (time.time() - last_output_at) > no_output_timeout
+                    ):
+                        _terminate_process(process)
+                        raise RuntimeError(
+                            f"求解卡住：连续无输出超过 {no_output_timeout} 秒"
                         )
 
             if not reached_eof:
@@ -828,6 +842,12 @@ def main():
         help=f"同一轮 exploitability 输出阶段停滞判定秒数（默认: {STALL_TIMEOUT}）",
     )
     parser.add_argument(
+        "--no-output-timeout",
+        type=int,
+        default=NO_OUTPUT_TIMEOUT,
+        help=f"连续无输出停滞判定秒数（默认: {NO_OUTPUT_TIMEOUT}）",
+    )
+    parser.add_argument(
         "--dump-format",
         type=str,
         default=DEFAULT_DUMP_FORMAT,
@@ -956,6 +976,7 @@ def main():
                 use_isomorphism=args.use_isomorphism,
                 thread_num=args.thread_num,
                 stall_timeout=args.stall_timeout,
+                no_output_timeout=args.no_output_timeout,
             )
             
             result = SolveResult(
