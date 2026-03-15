@@ -41,7 +41,7 @@ TIMEOUT = 7200  # 2小时
 # 无输出卡死判定时间（秒）
 STALL_TIMEOUT = 10
 # 最大重试次数
-MAX_RETRIES = 1
+MAX_RETRIES = 0
 # =============================================
 
 SUPPORTED_DUMP_FORMATS = ["json"] if IS_WINDOWS else ["json", "parquet", "parquet_native"]
@@ -864,7 +864,7 @@ def main():
     parser.add_argument("--accuracy", type=float, default=1, help="精度（默认: 1）")
     parser.add_argument("--max-iteration", type=int, default=300, help="最大迭代次数（默认: 300）")
     parser.add_argument("--print-interval", type=int, default=10, help="打印间隔（默认: 10）")
-    parser.add_argument("--max-retries", type=int, default=1, help="最大重试次数（默认: 1）")
+    parser.add_argument("--max-retries", type=int, default=MAX_RETRIES, help=f"最大重试次数（默认: {MAX_RETRIES}）")
     parser.add_argument(
         "--stall-timeout",
         type=int,
