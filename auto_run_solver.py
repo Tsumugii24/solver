@@ -41,7 +41,7 @@ TIMEOUT = 7200  # 2小时
 # 无输出卡死判定时间（秒）
 STALL_TIMEOUT = 15
 # 连续无输出停滞判定时间（秒）
-NO_OUTPUT_TIMEOUT = 180
+NO_OUTPUT_TIMEOUT = 100
 # 最大重试次数
 MAX_RETRIES = 0
 # =============================================
