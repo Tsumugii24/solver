@@ -39,9 +39,9 @@ CARDS_FILE = CARDS_DIR / "cards.txt"
 # 超时时间（秒）
 TIMEOUT = 7200  # 2小时
 # 无输出卡死判定时间（秒）
-STALL_TIMEOUT = 15
+STALL_TIMEOUT = 60
 # 连续无输出停滞判定时间（秒）
-NO_OUTPUT_TIMEOUT = 100
+NO_OUTPUT_TIMEOUT = 300
 # 最大重试次数
 MAX_RETRIES = 0
 # =============================================
