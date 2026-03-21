@@ -7,10 +7,12 @@
 
 用法:
   python run_pipeline.py                         # 默认求解全部牌面，满足阈值后后台转换+上传
-  python run_pipeline.py 1-20                    # 求解 1-20，满足阈值后后台转换+上传
-  python run_pipeline.py 1-20 --batch-size 5    # 同上
+  python run_pipeline.py 1-20                    # 求解序号 1-20
   python run_pipeline.py 1,5,10,15,20            # 指定序号
-  python run_pipeline.py 1-20 --no-upload       # 只求解+转换，不上传
+  python run_pipeline.py Jc7c5c                  # 指定具体牌面（大小写不敏感，如 jc7c5c）
+  python run_pipeline.py Jc7c5c,AcKc3d           # 多个牌面（逗号分隔，无空格）
+  python run_pipeline.py "Jc,7c,5c"              # 也支持牌面内逗号格式（需引号）
+  python run_pipeline.py 1-20 --no-upload        # 只求解+转换，不上传
   python run_pipeline.py 1-20 --convert-only     # 仅转换已有 JSON 并上传（不跑 solver）
 
 环境变量:
@@ -81,6 +83,62 @@ def _read_all_boards(cards_file: str) -> list[str]:
     cards_path = _get_cards_path(cards_file)
     boards = read_cards(cards_path)
     return [board for _, board in boards]
+
+
+def _looks_like_board_names(expr: str) -> bool:
+    """判断表达式是否包含牌面名称（含字母 A-T 等牌面字符）而非纯数字范围。"""
+    import re
+    return bool(re.search(r'[A-Ta-t]', expr))
+
+
+def _board_filename_lookup_key(fn: str) -> str:
+    """与牌面文件比对用的键（大小写不敏感）。"""
+    return fn.casefold()
+
+
+def _resolve_boards_to_indices(expr: str, all_boards: list[str]) -> list[int]:
+    """将牌面名称（如 Jc7c5c 或 Jc,7c,5c）解析为 1-based 索引列表。
+
+    支持逗号分隔的多个牌面，例如 "Jc7c5c,AcKc3d"。
+    与 cards 文件中的牌面比对时大小写不敏感（如 jc7c5c、JC7C5c 均可）。
+    返回排序去重后的索引列表；无法匹配的牌面会打印警告。
+    """
+    from auto_run_solver import normalize_board, board_to_filename
+
+    filename_to_idx: dict[str, int] = {}
+    for i, board in enumerate(all_boards, 1):
+        fn = board_to_filename(board)
+        key = _board_filename_lookup_key(fn)
+        if key in filename_to_idx and filename_to_idx[key] != i:
+            print(f"[警告] 牌面文件存在仅大小写不同的重复键: {fn!r}")
+        filename_to_idx[key] = i
+
+    indices: list[int] = []
+    raw_parts = expr.split(",")
+
+    buf = ""
+    board_tokens: list[str] = []
+    for part in raw_parts:
+        buf = (buf + "," + part) if buf else part
+        normalized = normalize_board(buf)
+        fn = board_to_filename(normalized)
+        card_count = len(fn) // 2
+        if card_count >= 3:
+            board_tokens.append(buf)
+            buf = ""
+    if buf:
+        board_tokens.append(buf)
+
+    for token in board_tokens:
+        normalized = normalize_board(token.strip())
+        fn = board_to_filename(normalized)
+        idx = filename_to_idx.get(_board_filename_lookup_key(fn))
+        if idx is not None:
+            indices.append(idx)
+        else:
+            print(f"[警告] 在牌面文件中未找到: {token.strip()} (标准化: {normalized})")
+
+    return sorted(set(indices))
 
 
 def _count_json_in_dir(directory: Path) -> int:
@@ -572,16 +630,19 @@ def main():
             sys.exit(1)
 
     try:
-        total = len(_read_all_boards(args.file))
+        all_boards = _read_all_boards(args.file)
+        total = len(all_boards)
     except Exception as e:
         print(f"[Error] Unable to read cards file: {e}")
         sys.exit(1)
     if args.range.lower() == "all":
         indices = list(range(1, total + 1))
+    elif _looks_like_board_names(args.range):
+        indices = _resolve_boards_to_indices(args.range, all_boards)
     else:
         indices = _parse_range(args.range, total)
     if not indices:
-        print("[错误] 没有有效的序号")
+        print("[错误] 没有有效的序号或牌面")
         sys.exit(1)
 
     batch_size = max(1, args.batch_size)
