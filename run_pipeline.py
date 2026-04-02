@@ -574,8 +574,8 @@ def main():
     )
     parser.add_argument("range", nargs="?", default="all",
                         help="序号范围，如 1-20 或 1,5,10,15,20 或 all；默认 all")
-    parser.add_argument("--batch-size", "-b", type=int, default=5,
-                        help="导出产物积累到此数时触发后续处理/上传（默认 5）")
+    parser.add_argument("--batch-size", "-b", type=int, default=1,
+                        help="导出产物积累到此数时触发后续处理/上传（默认 1）")
     parser.add_argument("--no-upload", action="store_true",
                         help="只求解+转换，不上传到 HF")
     parser.add_argument("--convert-only", action="store_true",
