@@ -37,6 +37,7 @@ if str(SCRIPT_DIR) not in sys.path:
 RESULTS_DIR = SCRIPT_DIR / "results"
 UPLOAD_DIR = SCRIPT_DIR / "upload"
 UPLOAD_STAGING_DIR = SCRIPT_DIR / "_upload_staging"
+RANGES_DIR = SCRIPT_DIR / "ranges"
 SUPPORTED_EXPORT_FORMATS = ["json"] if sys.platform == "win32" else ["json", "parquet", "parquet_native"]
 SUPPORTED_UPLOAD_FORMATS = ["json", "parquet"]
 DEFAULT_EXPORT_FORMAT = "json" if sys.platform == "win32" else "parquet"
@@ -304,20 +305,95 @@ def _process_artifacts(
     return _process_artifacts_in_dir(RESULTS_DIR, upload, repo_id=repo_id, upload_format=upload_format)
 
 
-def _prompt_repo_id() -> str:
-    """交互式获取要上传的 HF dataset repo_id。"""
+def _repo_id_to_range_filename(repo_id: str) -> str:
+    """Extract the dataset name from repo_id and derive the expected range filename.
+
+    E.g. "Tsumugii/sia-100bb" -> "sia-100bb.txt"
+         "sia-100bb" -> "sia-100bb.txt"
+    """
+    dataset_name = repo_id.split("/")[-1] if "/" in repo_id else repo_id
+    return f"{dataset_name}.txt"
+
+
+def _find_range_file(repo_id: str) -> Optional[Path]:
+    """Find a .txt range file in the ranges/ folder matching the repo_id dataset name."""
+    filename = _repo_id_to_range_filename(repo_id)
+    path = RANGES_DIR / filename
+    if path.is_file():
+        return path
+    # case-insensitive fallback
+    lower = filename.casefold()
+    for f in RANGES_DIR.iterdir():
+        if f.is_file() and f.name.casefold() == lower:
+            return f
+    return None
+
+
+def _load_ranges_from_file(range_file: Path) -> tuple[str, str]:
+    """Load OOP_RANGE and IP_RANGE from a range config file."""
+    oop, ip = "", ""
+    with open(range_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip().upper()
+            val = val.strip().strip('"\'')
+            if key == "OOP_RANGE":
+                oop = val
+            elif key == "IP_RANGE":
+                ip = val
+    if not oop or not ip:
+        missing = []
+        if not oop:
+            missing.append("OOP_RANGE")
+        if not ip:
+            missing.append("IP_RANGE")
+        raise ValueError(f"Range file {range_file.name} is missing: {', '.join(missing)}")
+    return oop, ip
+
+
+def _prompt_repo_id() -> tuple[str, Path]:
+    """交互式获取 HF dataset repo_id，并验证 ranges/ 下存在匹配的 range 文件。
+
+    Returns:
+        (repo_id, range_file_path) — 验证通过的 repo_id 及其对应的 range 文件路径。
+    """
     env_repo_id = os.environ.get("HF_REPO_ID")
     if env_repo_id:
-        print(f"[HF] 检测到 HF_REPO_ID={env_repo_id}")
-        return env_repo_id.strip()
+        repo_id = env_repo_id.strip()
+        print(f"[HF] 检测到 HF_REPO_ID={repo_id}")
+        range_file = _find_range_file(repo_id)
+        if range_file:
+            print(f"[Range] 已匹配 range 文件: {range_file.name}")
+            return repo_id, range_file
+        print(f"[警告] 未找到 repo_id '{repo_id}' 对应的 range 文件: "
+              f"{_repo_id_to_range_filename(repo_id)}")
+        print(f"  ranges/ 目录下可用文件: {[f.name for f in sorted(RANGES_DIR.glob('*.txt'))]}")
 
-    print("[提示] 请输入要上传的 Hugging Face dataset repo_id")
-    print("  例如: username/dataset-name （或按 Enter 退出）")
-    repo_id = input("  repo_id: ").strip()
-    if not repo_id:
-        print("[错误] 未提供 repo_id，退出")
-        sys.exit(1)
-    return repo_id
+    while True:
+        print("\n[提示] 请输入要上传的 Hugging Face dataset repo_id")
+        print("  例如: username/dataset-name")
+        print("  输入 q / quit / exit 退出")
+        user_input = input("  repo_id: ").strip()
+
+        if user_input.casefold() in ("q", "quit", "exit", ""):
+            print("[退出] 用户取消")
+            sys.exit(0)
+
+        range_file = _find_range_file(user_input)
+        if range_file:
+            print(f"[Range] 已匹配 range 文件: {range_file.name}")
+            return user_input, range_file
+
+        expected = _repo_id_to_range_filename(user_input)
+        available = [f.name for f in sorted(RANGES_DIR.glob("*.txt"))]
+        print(f"[警告] 未找到 '{expected}' in ranges/ 目录")
+        print(f"  可用文件: {available}")
+        print("  请重新输入或输入 q/quit/exit 退出")
 
 
 def _normalize_repo_id(repo_id: str) -> str:
@@ -674,22 +750,42 @@ def main():
         sys.exit(0)
 
     repo_id = args.repo_id.strip() if args.repo_id else None
+    range_file: Optional[Path] = None
+
     if repo_id:
         try:
             repo_id = _normalize_repo_id(repo_id)
         except Exception as e:
             print(f"[Error] Invalid repo_id: {e}")
             sys.exit(1)
+        range_file = _find_range_file(repo_id)
+        if not range_file:
+            expected = _repo_id_to_range_filename(repo_id)
+            available = [f.name for f in sorted(RANGES_DIR.glob("*.txt"))]
+            print(f"[错误] 未找到 repo_id '{repo_id}' 对应的 range 文件: {expected}")
+            print(f"  ranges/ 目录下可用文件: {available}")
+            sys.exit(1)
 
     # 需要上传时，先确认 repo_id 并检查 HF 登录
     if not args.no_upload:
         if not repo_id:
-            repo_id = _prompt_repo_id()
+            repo_id, range_file = _prompt_repo_id()
         try:
             repo_id = _normalize_repo_id(repo_id)
         except Exception as e:
             print(f"[Error] Invalid repo_id: {e}")
             sys.exit(1)
+
+        # 加载并显示 range 信息
+        try:
+            oop_range, ip_range = _load_ranges_from_file(range_file)
+            print(f"[Range] File: {range_file.name}")
+            print(f"  OOP: {oop_range[:80]}{'...' if len(oop_range) > 80 else ''}")
+            print(f"  IP:  {ip_range[:80]}{'...' if len(ip_range) > 80 else ''}")
+        except Exception as e:
+            print(f"[错误] 读取 range 文件失败: {e}")
+            sys.exit(1)
+
         print(f"[HF] Target Repository: https://huggingface.co/datasets/{repo_id}")
         if not _ensure_hf_logged_in():
             print("[Error] Unable to upload: Please login to HF or set HF_TOKEN")
@@ -753,6 +849,8 @@ def main():
             "--max-iteration", str(args.max_iteration),
             "--dump-format", args.export_format,
         ]
+        if range_file is not None:
+            solver_cmd.extend(["--range-file", range_file.name])
         if args.stall_timeout is not None:
             solver_cmd.extend(["--stall-timeout", str(args.stall_timeout)])
         if args.no_output_timeout is not None:

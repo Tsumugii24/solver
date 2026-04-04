@@ -79,7 +79,8 @@ set_bet_sizes ip,river,allin
 set_allin_threshold 0.5
 set_raise_limit 3
 build_tree
-{estimate_memory_line}set_thread_num {thread_num}
+{estimate_memory_line}
+set_thread_num {thread_num}
 set_accuracy {accuracy}
 set_max_iteration {max_iteration}
 set_print_interval {print_interval}
@@ -93,21 +94,29 @@ dump_result {output_file}
 
 # preflop range config file
 RANGES_DIR = SCRIPT_DIR / "ranges"
-PREFLOP_RANGE_FILE = RANGES_DIR / "sia.txt"
+PREFLOP_RANGE_FILE = RANGES_DIR / "sia-100bb.txt"
 
 
-def _load_preflop_ranges() -> Tuple[str, str]:
-    """load preflop range from ranges/sia.txt, if file not found or format error, raise exception"""
-    if not PREFLOP_RANGE_FILE.exists():
+def load_ranges_from_file(range_file: Path) -> Tuple[str, str]:
+    """Load OOP_RANGE and IP_RANGE from a text file.
+
+    The file should contain lines like:
+        OOP_RANGE = "AA,KK,..."
+        IP_RANGE = "AA,KK,..."
+
+    Returns:
+        (oop_range, ip_range) tuple of range strings.
+    """
+    if not range_file.exists():
         raise FileNotFoundError(
-            f"preflop range config file not found: {PREFLOP_RANGE_FILE}\n"
+            f"range config file not found: {range_file}\n"
             f"   please create the file and fill in OOP_RANGE and IP_RANGE, example:\n"
             f"    OOP_RANGE = \"AA,KK,...\"\n"
             f"    IP_RANGE = \"AA,KK,...\""
         )
     oop, ip = "", ""
     try:
-        with open(PREFLOP_RANGE_FILE, "r", encoding="utf-8") as f:
+        with open(range_file, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):
@@ -123,7 +132,7 @@ def _load_preflop_ranges() -> Tuple[str, str]:
                     ip = val
     except (OSError, UnicodeDecodeError) as e:
         raise RuntimeError(
-            f"failed to read preflop range config file {PREFLOP_RANGE_FILE}: {e}\n"
+            f"failed to read range config file {range_file}: {e}\n"
             f"   please check file permission and encoding"
         ) from e
 
@@ -134,12 +143,17 @@ def _load_preflop_ranges() -> Tuple[str, str]:
         if not ip:
             missing.append("IP_RANGE")
         raise ValueError(
-            f"preflop range config file {PREFLOP_RANGE_FILE} is missing or empty: {', '.join(missing)}\n"
+            f"range config file {range_file} is missing or empty: {', '.join(missing)}\n"
             f"   please ensure the file contains:\n"
             f"    OOP_RANGE = \"<range>\"\n"
             f"    IP_RANGE = \"<range>\""
         )
     return oop, ip
+
+
+def _load_preflop_ranges() -> Tuple[str, str]:
+    """Load default preflop ranges from the default range file."""
+    return load_ranges_from_file(PREFLOP_RANGE_FILE)
 
 
 # default preflop range (load from preflop.txt, if missing or format error, raise exception)
@@ -860,6 +874,12 @@ def main():
         help="在 build_tree 后执行 estimate_memory 并输出内存估算（默认关闭）",
     )
     parser.add_argument("--interactive", "-i", action="store_true", help="交互模式，开始前等待确认（默认跳过确认）")
+    parser.add_argument(
+        "--range-file",
+        type=str,
+        default=None,
+        help="指定 ranges 目录下的 range 配置文件名（如 sia-100bb.txt）；不传则使用默认 sia.txt",
+    )
     
     args = parser.parse_args()
     
@@ -933,6 +953,19 @@ def main():
     if args.interactive:
         input("按 Enter 开始求解...")
     
+    # 加载 range 配置（可通过 --range-file 覆盖默认 sia.txt）
+    if args.range_file:
+        range_path = RANGES_DIR / args.range_file
+        try:
+            solve_range_oop, solve_range_ip = load_ranges_from_file(range_path)
+            print(f"[Range] 使用自定义 range 文件: {range_path.name}")
+        except Exception as e:
+            print(f"[错误] 加载 range 文件失败: {e}")
+            sys.exit(1)
+    else:
+        solve_range_oop, solve_range_ip = DEFAULT_RANGE_OOP, DEFAULT_RANGE_IP
+        print(f"[Range] 使用默认 range 文件: {PREFLOP_RANGE_FILE.name}")
+
     # 开始求解
     stats = SolveStats(total=len(boards_to_solve))
     start_time = datetime.now()
@@ -959,6 +992,8 @@ def main():
                     use_isomorphism=args.use_isomorphism,
                     dump_format=args.dump_format,
                     estimate_memory=args.estimate_memory,
+                    range_oop=solve_range_oop,
+                    range_ip=solve_range_ip,
                 )
                 print(f"[配置] 生成: {config_file.name}")
             except Exception as e:
