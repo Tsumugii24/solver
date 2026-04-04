@@ -19,8 +19,8 @@ import sys
 import time
 from pathlib import Path
 
-MAX_RETRIES = 1000
-RETRY_DELAY = 1
+MAX_RETRIES = 5
+INITIAL_RETRY_DELAY = 2
 FILE_PATTERNS = {
     "json": "*.json",
     "parquet": "*.parquet",
@@ -78,13 +78,17 @@ def main() -> None:
             )
             print("Done")
             sys.exit(0)
-        except (KeyboardInterrupt, Exception) as e:
+        except KeyboardInterrupt:
+            print("\nUpload interrupted by user")
+            sys.exit(1)
+        except Exception as e:
             if attempt >= MAX_RETRIES:
                 print(f"\nMax retries ({MAX_RETRIES}) reached. Last error: {e}")
                 sys.exit(1)
+            delay = INITIAL_RETRY_DELAY * (2 ** (attempt - 1))
             print(f"Error (attempt {attempt}): {e}")
-            print(f"Retrying in {RETRY_DELAY}s...")
-            time.sleep(RETRY_DELAY)
+            print(f"Retrying in {delay}s...")
+            time.sleep(delay)
 
 
 if __name__ == "__main__":
