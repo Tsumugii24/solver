@@ -19,6 +19,10 @@
 环境变量:
   HF_TOKEN 或 HUGGINGFACE_HUB_TOKEN: 未登录时自动用此 token 登录
   HF_REPO_ID: 目标 Hugging Face dataset repo_id；不传则启动时交互输入
+
+  dataset 名（repo_id 最后一段）应对应 ranges 下的 range 文件名（不含路径）：
+  例如 dataset 为 sia-12-sod-30 则匹配 ranges/sia-sod/sia-12-sod-30.txt，
+  soa-50-sid-30 则匹配 ranges/soa-sid/soa-50-sid-30.txt；根目录遗留的 sia-100bb.txt 仍可匹配。
 """
 
 import argparse
@@ -255,28 +259,106 @@ def _process_artifacts(
     return _process_artifacts_in_dir(RESULTS_DIR, upload, repo_id=repo_id, upload_format=upload_format)
 
 
+def _dataset_name_from_repo_id(repo_id: str) -> str:
+    """HF dataset 名（repo_id 最后一段），如 user/sia-12-sod-30 -> sia-12-sod-30"""
+    return repo_id.split("/")[-1].strip()
+
+
 def _repo_id_to_range_filename(repo_id: str) -> str:
-    """Extract the dataset name from repo_id and derive the expected range filename.
+    """从 repo_id 得到对应的 range 文件名。
 
     E.g. "Tsumugii/sia-100bb" -> "sia-100bb.txt"
-         "sia-100bb" -> "sia-100bb.txt"
+         "user/sia-12-sod-30" -> "sia-12-sod-30.txt"
     """
-    dataset_name = repo_id.split("/")[-1] if "/" in repo_id else repo_id
-    return f"{dataset_name}.txt"
+    name = _dataset_name_from_repo_id(repo_id)
+    if name.endswith(".txt"):
+        return name
+    return f"{name}.txt"
+
+
+def _infer_scenario_subdir_for_dataset(dataset_name: str) -> Optional[str]:
+    """根据 dataset / 文件名推断应落在 ranges/<subdir>/ 下的子目录。"""
+    base = dataset_name[:-4] if dataset_name.lower().endswith(".txt") else dataset_name
+    base = base.lower()
+    if "-sod-" in base or (base.startswith("sia-") and "sod" in base):
+        return "sia-sod"
+    if "-sid-" in base or (base.startswith("soa-") and "sid" in base):
+        return "soa-sid"
+    return None
+
+
+def _list_range_txt_for_errors() -> list[str]:
+    """用于报错时列出可选的 range 文件（根目录 + 子目录）。"""
+    out: list[str] = []
+    if RANGES_DIR.is_dir():
+        for f in sorted(RANGES_DIR.glob("*.txt")):
+            out.append(f.name)
+        for sub in ("sia-sod", "soa-sid"):
+            d = RANGES_DIR / sub
+            if d.is_dir():
+                for f in sorted(d.glob("*.txt")):
+                    out.append(f"{sub}/{f.name}")
+    return out
 
 
 def _find_range_file(repo_id: str) -> Optional[Path]:
-    """Find a .txt range file in the ranges/ folder matching the repo_id dataset name."""
+    """在 ranges/、ranges/sia-sod/、ranges/soa-sid/ 中查找与 repo dataset 名一致的 .txt。"""
     filename = _repo_id_to_range_filename(repo_id)
-    path = RANGES_DIR / filename
-    if path.is_file():
-        return path
-    # case-insensitive fallback
     lower = filename.casefold()
-    for f in RANGES_DIR.iterdir():
-        if f.is_file() and f.name.casefold() == lower:
-            return f
+    dataset_name = _dataset_name_from_repo_id(repo_id)
+
+    # 1) 根目录 ranges/<name>.txt
+    p = RANGES_DIR / filename
+    if p.is_file():
+        return p
+    if RANGES_DIR.is_dir():
+        for f in RANGES_DIR.glob("*.txt"):
+            if f.is_file() and f.name.casefold() == lower:
+                return f
+
+    # 2) 按命名推断子目录后精确路径
+    sub = _infer_scenario_subdir_for_dataset(dataset_name)
+    if sub:
+        p = RANGES_DIR / sub / filename
+        if p.is_file():
+            return p
+        d = RANGES_DIR / sub
+        if d.is_dir():
+            for f in d.glob("*.txt"):
+                if f.is_file() and f.name.casefold() == lower:
+                    return f
+
+    # 3) 未推断出子目录时，在两个标准子目录中按文件名搜索
+    for scenario in ("sia-sod", "soa-sid"):
+        d = RANGES_DIR / scenario
+        if not d.is_dir():
+            continue
+        p = d / filename
+        if p.is_file():
+            return p
+        for f in d.glob("*.txt"):
+            if f.is_file() and f.name.casefold() == lower:
+                return f
+
     return None
+
+
+def _scenario_for_range_path(range_file: Path) -> str:
+    """根据 range 文件路径推断 auto_run_solver 的 --scenario。"""
+    try:
+        rel = range_file.resolve().relative_to(RANGES_DIR.resolve())
+    except ValueError:
+        rel = Path(range_file.name)
+    parts = rel.parts
+    if len(parts) >= 2 and parts[0] in ("sia-sod", "soa-sid"):
+        return parts[0]
+    stem = range_file.stem.lower()
+    if stem.startswith("soa-") and "sid" in stem:
+        return "soa-sid"
+    if "-sod-" in stem or (stem.startswith("sia-") and "sod" in stem):
+        return "sia-sod"
+    # 根目录遗留（如 sia-100bb.txt）：与旧版一致，按 sia-sod 模板
+    return "sia-sod"
 
 
 def _load_ranges_from_file(range_file: Path) -> tuple[str, str]:
@@ -322,7 +404,7 @@ def _prompt_repo_id() -> tuple[str, Path]:
             return repo_id, range_file
         print(f"[警告] 未找到 repo_id '{repo_id}' 对应的 range 文件: "
               f"{_repo_id_to_range_filename(repo_id)}")
-        print(f"  ranges/ 目录下可用文件: {[f.name for f in sorted(RANGES_DIR.glob('*.txt'))]}")
+        print(f"  ranges/ 下可用: {_list_range_txt_for_errors()}")
 
     while True:
         print("\n[提示] 请输入要上传的 Hugging Face dataset repo_id")
@@ -340,8 +422,8 @@ def _prompt_repo_id() -> tuple[str, Path]:
             return user_input, range_file
 
         expected = _repo_id_to_range_filename(user_input)
-        available = [f.name for f in sorted(RANGES_DIR.glob("*.txt"))]
-        print(f"[警告] 未找到 '{expected}' in ranges/ 目录")
+        available = _list_range_txt_for_errors()
+        print(f"[警告] 未找到 '{expected}'（已搜索 ranges/ 根目录与 sia-sod、soa-sid）")
         print(f"  可用文件: {available}")
         print("  请重新输入或输入 q/quit/exit 退出")
 
@@ -483,6 +565,19 @@ def main():
                         help="仅处理已有结果并上传，不跑 solver")
     parser.add_argument("--repo-id", type=str, default=None,
                         help="目标 Hugging Face dataset repo_id；不传则启动时交互输入")
+    parser.add_argument(
+        "--scenario",
+        type=str,
+        default=None,
+        choices=["sia-sod", "soa-sid"],
+        help="未提供 --repo-id 时与 --range-file 联用：ranges/<scenario>/ 下的场景子目录",
+    )
+    parser.add_argument(
+        "--range-file",
+        type=str,
+        default=None,
+        help="未提供 --repo-id 时：场景目录内文件名，如 sia-12-sod-30.txt（与 --scenario 搭配）",
+    )
     parser.add_argument("--dry-run", action="store_true",
                         help="仅预览，不执行")
     # 透传给 auto_run_solver
@@ -586,9 +681,9 @@ def main():
         range_file = _find_range_file(repo_id)
         if not range_file:
             expected = _repo_id_to_range_filename(repo_id)
-            available = [f.name for f in sorted(RANGES_DIR.glob("*.txt"))]
             print(f"[错误] 未找到 repo_id '{repo_id}' 对应的 range 文件: {expected}")
-            print(f"  ranges/ 目录下可用文件: {available}")
+            print(f"  （已搜索 ranges/ 根目录与 sia-sod、soa-sid 子目录）")
+            print(f"  ranges/ 下可用: {_list_range_txt_for_errors()}")
             sys.exit(1)
 
     # 需要上传时，先确认 repo_id 并检查 HF 登录
@@ -614,6 +709,28 @@ def main():
         print(f"[HF] Target Repository: https://huggingface.co/datasets/{repo_id}")
         if not _ensure_hf_logged_in():
             print("[Error] Unable to upload: Please login to HF or set HF_TOKEN")
+            sys.exit(1)
+
+    # --no-upload 且未提供 --repo-id：用 --scenario + --range-file 指向 ranges/<scenario>/
+    if range_file is None and args.scenario and args.range_file:
+        cand = RANGES_DIR / args.scenario / args.range_file
+        if cand.is_file():
+            range_file = cand.resolve()
+        else:
+            alt = RANGES_DIR / args.range_file
+            if alt.is_file():
+                range_file = alt.resolve()
+            else:
+                print(f"[错误] 找不到 range 文件: {cand}")
+                print(f"  亦未在 ranges/ 根目录找到: {alt}")
+                print(f"  ranges/ 下可用: {_list_range_txt_for_errors()}")
+                sys.exit(1)
+
+    if not args.convert_only:
+        if range_file is None or not range_file.is_file():
+            print("[错误] 运行 solver 需要 range：请使用 --repo-id（HF dataset 名应对应 ranges 下某 .txt 基名），")
+            print("  或同时指定 --scenario 与 --range-file（常用于仅本地求解、不上传）。")
+            print(f"  ranges/ 下可用: {_list_range_txt_for_errors()}")
             sys.exit(1)
 
     if repo_id and not args.convert_only:
@@ -665,13 +782,13 @@ def main():
             sys.executable, str(SCRIPT_DIR / "auto_run_solver.py"),
             expr,
             "--file", args.file,
+            "--scenario", _scenario_for_range_path(range_file),
+            "--range-file", range_file.name,
             "--thread-num", str(args.thread_num),
             "--use-isomorphism", str(args.use_isomorphism),
             "--max-iteration", str(args.max_iteration),
             "--dump-format", args.export_format,
         ]
-        if range_file is not None:
-            solver_cmd.extend(["--range-file", range_file.name])
         if args.stall_timeout is not None:
             solver_cmd.extend(["--stall-timeout", str(args.stall_timeout)])
         if args.no_output_timeout is not None:

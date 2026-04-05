@@ -51,7 +51,7 @@ DEFAULT_DUMP_FORMAT = "json" if IS_WINDOWS else "parquet"
 
 
 # solving config
-CONFIG = """set_pot {pot}
+SIA_SOD_CONFIG = """set_pot {pot}
 set_effective_stack {effective_stack}
 set_board {board}
 set_range_oop {range_oop}
@@ -92,9 +92,55 @@ set_dump_rounds 1
 dump_result {output_file}
 """
 
+
+SOA_SID_CONFIG = """set_pot {pot}
+set_effective_stack {effective_stack}
+set_board {board}
+set_range_oop {range_oop}
+set_range_ip {range_ip}
+set_bet_sizes oop,flop,bet,25,50,75
+set_bet_sizes oop,flop,raise,50,100
+set_bet_sizes oop,flop,allin
+set_bet_sizes ip,flop,bet,25,50,75
+set_bet_sizes ip,flop,raise,50,100
+set_bet_sizes ip,flop,allin
+set_bet_sizes oop,turn,bet,25,50,75,125
+set_bet_sizes oop,turn,raise,50,100
+set_bet_sizes oop,turn,donk,33
+set_bet_sizes oop,turn,allin
+set_bet_sizes ip,turn,bet,25,50,75,125
+set_bet_sizes ip,turn,raise,50,100
+set_bet_sizes ip,turn,allin
+set_bet_sizes oop,river,bet,25,50,75,125,200
+set_bet_sizes oop,river,raise,75,150
+set_bet_sizes oop,river,donk,33
+set_bet_sizes oop,river,allin
+set_bet_sizes ip,river,bet,25,50,75,125,200
+set_bet_sizes ip,river,raise,75,150
+set_bet_sizes ip,river,allin
+set_allin_threshold 0.67
+set_raise_limit 3
+build_tree
+{estimate_memory_line}
+set_thread_num {thread_num}
+set_accuracy {accuracy}
+set_max_iteration {max_iteration}
+set_print_interval {print_interval}
+set_use_isomorphism {use_isomorphism}
+set_enable_range 1
+start_solve
+set_dump_format {dump_format}
+set_dump_rounds 1
+dump_result {output_file}
+"""
+
 # preflop range config file
 RANGES_DIR = SCRIPT_DIR / "ranges"
-PREFLOP_RANGE_FILE = RANGES_DIR / "sia-100bb.txt"
+
+SCENARIO_CONFIG = {
+    "sia-sod": SIA_SOD_CONFIG,
+    "soa-sid": SOA_SID_CONFIG,
+}
 
 
 def load_ranges_from_file(range_file: Path) -> Tuple[str, str]:
@@ -151,15 +197,12 @@ def load_ranges_from_file(range_file: Path) -> Tuple[str, str]:
     return oop, ip
 
 
-def _load_preflop_ranges() -> Tuple[str, str]:
-    """Load default preflop ranges from the default range file."""
-    return load_ranges_from_file(PREFLOP_RANGE_FILE)
-
-
-# default preflop range (load from preflop.txt, if missing or format error, raise exception)
-_oop, _ip = _load_preflop_ranges()
-DEFAULT_RANGE_OOP = _oop
-DEFAULT_RANGE_IP = _ip
+def list_range_files(scenario: str) -> List[str]:
+    """列出指定场景目录下的所有 range 文件名"""
+    scenario_dir = RANGES_DIR / scenario
+    if not scenario_dir.exists():
+        return []
+    return sorted(f.name for f in scenario_dir.glob("*.txt"))
 # =============================================
 
 
@@ -384,14 +427,15 @@ def dump_format_to_extension(dump_format: str) -> str:
 def generate_config_file(
     board: str,
     output_dir: Path,
+    config_template: str,
+    range_oop: str,
+    range_ip: str,
     pot: int = 5,
     effective_stack: int = 98,
     thread_num: int = -1,
     accuracy: float = 1,
     max_iteration: int = 300,
     print_interval: int = 10,
-    range_oop: str = None,
-    range_ip: str = None,
     use_isomorphism: int = 1,
     dump_format: str = DEFAULT_DUMP_FORMAT,
     estimate_memory: bool = False,
@@ -402,22 +446,20 @@ def generate_config_file(
     Args:
         board: 牌面字符串（逗号分隔）
         output_dir: 配置文件输出目录
+        config_template: 求解器配置模板（SIA_SOD_CONFIG 或 SOA_SID_CONFIG）
+        range_oop: OOP range 字符串
+        range_ip: IP range 字符串
         其他参数: 求解器配置
         
     Returns:
         生成的配置文件路径
     """
-    if range_oop is None:
-        range_oop = DEFAULT_RANGE_OOP
-    if range_ip is None:
-        range_ip = DEFAULT_RANGE_IP
-    
     filename = board_to_filename(board)
     config_path = output_dir / f"{filename}.txt"
     output_file = f"{filename}{dump_format_to_extension(dump_format)}"
     estimate_memory_line = "estimate_memory\n" if estimate_memory else ""
 
-    config_content = CONFIG.format(
+    config_content = config_template.format(
         pot=pot,
         effective_stack=effective_stack,
         board=board,
@@ -807,29 +849,23 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  # 求解第 1 到第 10 个牌面
-  python auto_run_solver.py 1-10
+  # sia-sod 场景，使用 sia-12-sod-30 的 range 求解第 1-10 个牌面
+  python auto_run_solver.py 1-10 --scenario sia-sod --range-file sia-12-sod-30.txt
+
+  # soa-sid 场景，使用 soa-50-sid-30 的 range 求解所有牌面
+  python auto_run_solver.py all --scenario soa-sid --range-file soa-50-sid-30.txt
 
   # 求解单个牌面
-  python auto_run_solver.py 5
+  python auto_run_solver.py 5 --scenario sia-sod --range-file sia-45-sod-40.txt
 
   # 混合范围和单个序号
-  python auto_run_solver.py 1-10,15,20-30,35
+  python auto_run_solver.py 1-10,15,20-30,35 --scenario sia-sod --range-file sia-12-sod-30.txt
 
-  # 求解所有牌面
-  python auto_run_solver.py all
-
-  # 重新求解缺失的牌面（从 check_missing.py 输出复制）
-  python auto_run_solver.py 427,430,433,436,439
-
-  # 指定牌面文件
-  python auto_run_solver.py 1-10 --file cards.txt
+  # 重新求解缺失的牌面
+  python auto_run_solver.py 427,430,433,436,439 --scenario soa-sid --range-file soa-50-sid-30.txt
 
   # 自定义求解参数
-  python auto_run_solver.py 1-10 --thread-num 8 --max-iteration 500
-
-  # 直接导出 Parquet
-  python auto_run_solver.py 1-10 --dump-format json
+  python auto_run_solver.py 1-10 --scenario sia-sod --range-file sia-12-sod-30.txt --thread-num 8 --max-iteration 500
         """
     )
     
@@ -875,10 +911,17 @@ def main():
     )
     parser.add_argument("--interactive", "-i", action="store_true", help="交互模式，开始前等待确认（默认跳过确认）")
     parser.add_argument(
+        "--scenario",
+        type=str,
+        required=True,
+        choices=list(SCENARIO_CONFIG.keys()),
+        help="场景类型：sia-sod 或 soa-sid，决定使用的配置模板和 range 目录",
+    )
+    parser.add_argument(
         "--range-file",
         type=str,
-        default=None,
-        help="指定 ranges 目录下的 range 配置文件名（如 sia-100bb.txt）；不传则使用默认 sia.txt",
+        required=True,
+        help="场景目录下的 range 配置文件名（如 sia-12-sod-30.txt）",
     )
     
     args = parser.parse_args()
@@ -953,18 +996,22 @@ def main():
     if args.interactive:
         input("按 Enter 开始求解...")
     
-    # 加载 range 配置（可通过 --range-file 覆盖默认 sia.txt）
-    if args.range_file:
-        range_path = RANGES_DIR / args.range_file
-        try:
-            solve_range_oop, solve_range_ip = load_ranges_from_file(range_path)
-            print(f"[Range] 使用自定义 range 文件: {range_path.name}")
-        except Exception as e:
-            print(f"[错误] 加载 range 文件失败: {e}")
-            sys.exit(1)
-    else:
-        solve_range_oop, solve_range_ip = DEFAULT_RANGE_OOP, DEFAULT_RANGE_IP
-        print(f"[Range] 使用默认 range 文件: {PREFLOP_RANGE_FILE.name}")
+    # 根据 scenario 选择配置模板和 range 目录
+    config_template = SCENARIO_CONFIG[args.scenario]
+    range_path = RANGES_DIR / args.scenario / args.range_file
+    available_files = list_range_files(args.scenario)
+
+    try:
+        solve_range_oop, solve_range_ip = load_ranges_from_file(range_path)
+        print(f"[场景] {args.scenario}")
+        print(f"[Range] 使用 range 文件: {range_path.relative_to(SCRIPT_DIR)}")
+    except Exception as e:
+        print(f"[错误] 加载 range 文件失败: {e}")
+        if available_files:
+            print(f"[提示] {args.scenario} 目录下可用的 range 文件:")
+            for name in available_files:
+                print(f"        {name}")
+        sys.exit(1)
 
     # 开始求解
     stats = SolveStats(total=len(boards_to_solve))
@@ -983,6 +1030,9 @@ def main():
                 config_file = generate_config_file(
                     board=board,
                     output_dir=CARDS_DIR,
+                    config_template=config_template,
+                    range_oop=solve_range_oop,
+                    range_ip=solve_range_ip,
                     pot=args.pot,
                     effective_stack=args.stack,
                     thread_num=args.thread_num,
@@ -992,8 +1042,6 @@ def main():
                     use_isomorphism=args.use_isomorphism,
                     dump_format=args.dump_format,
                     estimate_memory=args.estimate_memory,
-                    range_oop=solve_range_oop,
-                    range_ip=solve_range_ip,
                 )
                 print(f"[配置] 生成: {config_file.name}")
             except Exception as e:
