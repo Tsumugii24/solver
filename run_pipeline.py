@@ -22,7 +22,9 @@
 
   dataset 名（repo_id 最后一段）应对应 ranges 下的 range 文件名（不含路径）：
   例如 dataset 为 sia-12-sod-30 则匹配 ranges/sia-sod/sia-12-sod-30.txt，
-  soa-50-sid-30 则匹配 ranges/soa-sid/soa-50-sid-30.txt；根目录遗留的 sia-100bb.txt 仍可匹配。
+  soa-50-sid-30 则匹配 ranges/soa-sid/soa-50-sid-30.txt，
+  3ia-16.5-3od-13 则匹配 ranges/3ia-3od/3ia-16.5-3od-13.txt；
+  根目录遗留的 sia-100bb.txt 仍可匹配。
 """
 
 import argparse
@@ -42,6 +44,7 @@ SUPPORTED_EXPORT_FORMATS = ["json"] if sys.platform == "win32" else ["json", "pa
 SUPPORTED_UPLOAD_FORMATS = ["json", "parquet"]
 DEFAULT_EXPORT_FORMAT = "json" if sys.platform == "win32" else "parquet"
 DEFAULT_UPLOAD_FORMAT = "parquet"
+SCENARIO_SUBDIRS = ("sia-sod", "soa-sid", "3ia-3od")
 
 
 def _run(cmd: list, cwd: Path = None) -> bool:
@@ -280,6 +283,8 @@ def _infer_scenario_subdir_for_dataset(dataset_name: str) -> Optional[str]:
     """根据 dataset / 文件名推断应落在 ranges/<subdir>/ 下的子目录。"""
     base = dataset_name[:-4] if dataset_name.lower().endswith(".txt") else dataset_name
     base = base.lower()
+    if "-3od-" in base or (base.startswith("3ia-") and "3od" in base):
+        return "3ia-3od"
     if "-sod-" in base or (base.startswith("sia-") and "sod" in base):
         return "sia-sod"
     if "-sid-" in base or (base.startswith("soa-") and "sid" in base):
@@ -293,7 +298,7 @@ def _list_range_txt_for_errors() -> list[str]:
     if RANGES_DIR.is_dir():
         for f in sorted(RANGES_DIR.glob("*.txt")):
             out.append(f.name)
-        for sub in ("sia-sod", "soa-sid"):
+        for sub in SCENARIO_SUBDIRS:
             d = RANGES_DIR / sub
             if d.is_dir():
                 for f in sorted(d.glob("*.txt")):
@@ -302,7 +307,7 @@ def _list_range_txt_for_errors() -> list[str]:
 
 
 def _find_range_file(repo_id: str) -> Optional[Path]:
-    """在 ranges/、ranges/sia-sod/、ranges/soa-sid/ 中查找与 repo dataset 名一致的 .txt。"""
+    """在 ranges/ 根目录及各场景子目录中查找与 repo dataset 名一致的 .txt。"""
     filename = _repo_id_to_range_filename(repo_id)
     lower = filename.casefold()
     dataset_name = _dataset_name_from_repo_id(repo_id)
@@ -328,8 +333,8 @@ def _find_range_file(repo_id: str) -> Optional[Path]:
                 if f.is_file() and f.name.casefold() == lower:
                     return f
 
-    # 3) 未推断出子目录时，在两个标准子目录中按文件名搜索
-    for scenario in ("sia-sod", "soa-sid"):
+    # 3) 未推断出子目录时，在标准子目录中按文件名搜索
+    for scenario in SCENARIO_SUBDIRS:
         d = RANGES_DIR / scenario
         if not d.is_dir():
             continue
@@ -350,9 +355,11 @@ def _scenario_for_range_path(range_file: Path) -> str:
     except ValueError:
         rel = Path(range_file.name)
     parts = rel.parts
-    if len(parts) >= 2 and parts[0] in ("sia-sod", "soa-sid"):
+    if len(parts) >= 2 and parts[0] in SCENARIO_SUBDIRS:
         return parts[0]
     stem = range_file.stem.lower()
+    if "-3od-" in stem or (stem.startswith("3ia-") and "3od" in stem):
+        return "3ia-3od"
     if stem.startswith("soa-") and "sid" in stem:
         return "soa-sid"
     if "-sod-" in stem or (stem.startswith("sia-") and "sod" in stem):
@@ -423,7 +430,7 @@ def _prompt_repo_id() -> tuple[str, Path]:
 
         expected = _repo_id_to_range_filename(user_input)
         available = _list_range_txt_for_errors()
-        print(f"[警告] 未找到 '{expected}'（已搜索 ranges/ 根目录与 sia-sod、soa-sid）")
+        print(f"[警告] 未找到 '{expected}'（已搜索 ranges/ 根目录与所有场景子目录）")
         print(f"  可用文件: {available}")
         print("  请重新输入或输入 q/quit/exit 退出")
 
@@ -569,7 +576,7 @@ def main():
         "--scenario",
         type=str,
         default=None,
-        choices=["sia-sod", "soa-sid"],
+        choices=list(SCENARIO_SUBDIRS),
         help="未提供 --repo-id 时与 --range-file 联用：ranges/<scenario>/ 下的场景子目录",
     )
     parser.add_argument(
@@ -682,7 +689,7 @@ def main():
         if not range_file:
             expected = _repo_id_to_range_filename(repo_id)
             print(f"[错误] 未找到 repo_id '{repo_id}' 对应的 range 文件: {expected}")
-            print(f"  （已搜索 ranges/ 根目录与 sia-sod、soa-sid 子目录）")
+            print(f"  （已搜索 ranges/ 根目录与所有场景子目录）")
             print(f"  ranges/ 下可用: {_list_range_txt_for_errors()}")
             sys.exit(1)
 

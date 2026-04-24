@@ -134,12 +134,60 @@ set_dump_rounds 1
 dump_result {output_file}
 """
 
+TOA_TID_CONFIG = """set_pot {pot}
+set_effective_stack {effective_stack}
+set_board {board}
+set_range_oop {range_oop}
+set_range_ip {range_ip}
+set_bet_sizes oop,flop,bet,33
+set_bet_sizes oop,flop,raise,35,55,75
+set_bet_sizes oop,flop,allin
+set_bet_sizes ip,flop,bet,20,33,50,75
+set_bet_sizes ip,flop,raise,35,75
+set_bet_sizes ip,flop,allin
+set_bet_sizes oop,turn,bet,33,50,75,150
+set_bet_sizes oop,turn,raise,33,50,75
+set_bet_sizes oop,turn,donk,33
+set_bet_sizes oop,turn,allin
+set_bet_sizes ip,turn,bet,33,50,75,125
+set_bet_sizes ip,turn,raise,33,50,75
+set_bet_sizes ip,turn,allin
+set_bet_sizes oop,river,bet,33,50,75,150
+set_bet_sizes oop,river,raise,33,50,75
+set_bet_sizes oop,river,donk,33
+set_bet_sizes oop,river,allin
+set_bet_sizes ip,river,bet,33,50,75,125
+set_bet_sizes ip,river,raise,33,50,75
+set_bet_sizes ip,river,allin
+set_allin_threshold 0.67
+set_raise_limit 3
+build_tree
+{estimate_memory_line}
+set_thread_num {thread_num}
+set_accuracy {accuracy}
+set_max_iteration {max_iteration}
+set_print_interval {print_interval}
+set_use_isomorphism {use_isomorphism}
+set_enable_range 1
+start_solve
+set_dump_format {dump_format}
+set_dump_rounds 1
+dump_result {output_file}
+"""
+
 # preflop range config file
 RANGES_DIR = SCRIPT_DIR / "ranges"
 
 SCENARIO_CONFIG = {
     "sia-sod": SIA_SOD_CONFIG,
     "soa-sid": SOA_SID_CONFIG,
+    "3ia-3od": TOA_TID_CONFIG,
+}
+
+SCENARIO_DEFAULTS = {
+    "sia-sod": {"pot": 5, "effective_stack": 98},
+    "soa-sid": {"pot": 5, "effective_stack": 98},
+    "3ia-3od": {"pot": 16, "effective_stack": 92},
 }
 
 
@@ -864,6 +912,9 @@ def main():
   # 重新求解缺失的牌面
   python auto_run_solver.py 427,430,433,436,439 --scenario soa-sid --range-file soa-50-sid-30.txt
 
+  # 3bet 场景，默认使用 pot=16 / effective_stack=92
+  python auto_run_solver.py 1-10 --scenario 3ia-3od --range-file 3ia-16.5-3od-13.txt
+
   # 自定义求解参数
   python auto_run_solver.py 1-10 --scenario sia-sod --range-file sia-12-sod-30.txt --thread-num 8 --max-iteration 500
         """
@@ -877,8 +928,18 @@ def main():
     parser.add_argument("--column", type=str, default="A", help="Excel 文件的牌面所在列（默认: A）")
     
     # 求解器参数
-    parser.add_argument("--pot", type=int, default=5, help="底池大小（默认: 5）")
-    parser.add_argument("--stack", type=int, default=98, help="有效筹码（默认: 98）")
+    parser.add_argument(
+        "--pot",
+        type=int,
+        default=None,
+        help="底池大小（默认: 按场景自动设置；sia-sod/soa-sid=5，3ia-3od=16）",
+    )
+    parser.add_argument(
+        "--stack",
+        type=int,
+        default=None,
+        help="有效筹码（默认: 按场景自动设置；sia-sod/soa-sid=98，3ia-3od=92）",
+    )
     parser.add_argument("--thread-num", type=int, default=-1, help="线程数（默认: -1，使用所有核心）")
     parser.add_argument("--use-isomorphism", type=int, choices=[0, 1], default=1, help="是否启用花色同构（默认: 1）")
     parser.add_argument("--accuracy", type=float, default=1, help="精度（默认: 1）")
@@ -915,7 +976,7 @@ def main():
         type=str,
         required=True,
         choices=list(SCENARIO_CONFIG.keys()),
-        help="场景类型：sia-sod 或 soa-sid，决定使用的配置模板和 range 目录",
+        help="场景类型：sia-sod、soa-sid 或 3ia-3od，决定使用的配置模板和 range 目录",
     )
     parser.add_argument(
         "--range-file",
@@ -936,6 +997,10 @@ def main():
     if not ensure_solver_exists():
         print("[错误] Solver 不可用")
         sys.exit(1)
+
+    scenario_defaults = SCENARIO_DEFAULTS[args.scenario]
+    pot = args.pot if args.pot is not None else scenario_defaults["pot"]
+    stack = args.stack if args.stack is not None else scenario_defaults["effective_stack"]
     
     # 牌面文件路径
     cards_path = CARDS_DIR / args.file
@@ -980,6 +1045,7 @@ def main():
     # 筛选牌面
     boards_to_solve = [(i, all_boards[i - 1]) for i in indices]
     print(
+        f"[场景参数] pot={pot}, effective_stack={stack}\n"
         f"[配置] thread_num={args.thread_num}, "
         f"use_isomorphism={args.use_isomorphism}, "
         f"max_iteration={args.max_iteration}, dump_format={args.dump_format}, "
@@ -1033,8 +1099,8 @@ def main():
                     config_template=config_template,
                     range_oop=solve_range_oop,
                     range_ip=solve_range_ip,
-                    pot=args.pot,
-                    effective_stack=args.stack,
+                    pot=pot,
+                    effective_stack=stack,
                     thread_num=args.thread_num,
                     accuracy=args.accuracy,
                     max_iteration=args.max_iteration,
