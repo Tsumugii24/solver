@@ -2,7 +2,7 @@
 # Runtime libraries for console_solver + Python pipeline (no compiler toolchain).
 set -euo pipefail
 
-UBUNTU_CODENAME="${UBUNTU_CODENAME:-jammy}"
+UBUNTU_CODENAME="${UBUNTU_CODENAME:-noble}"
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -10,8 +10,6 @@ apt-get update
 apt-get install -y --no-install-recommends \
     ca-certificates curl wget gnupg lsb-release \
     libgomp1 \
-    libssl3 zlib1g libbz2-1.0 liblz4-1 libzstd1 libutf8proc2 \
-    libcurl4 \
     python3 python3-pip
 
 deb="/tmp/apache-arrow-apt-source-latest-${UBUNTU_CODENAME}.deb"

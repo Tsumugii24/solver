@@ -4,9 +4,9 @@
 #   docker pull ghcr.io/<user>/solver-pipeline:latest
 #   docker compose run --rm pipeline python run_pipeline.py ...
 
-ARG UBUNTU_CODENAME=jammy
+ARG UBUNTU_CODENAME=noble
 
-FROM ubuntu:22.04 AS builder
+FROM ubuntu:24.04 AS builder
 ARG UBUNTU_CODENAME
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UBUNTU_CODENAME=${UBUNTU_CODENAME}
@@ -23,7 +23,7 @@ RUN chmod +x compile.sh && ./compile.sh --skip-deps
 RUN test -x install/console_solver
 
 
-FROM ubuntu:22.04 AS runtime
+FROM ubuntu:24.04 AS runtime
 ARG UBUNTU_CODENAME
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UBUNTU_CODENAME=${UBUNTU_CODENAME}
@@ -31,6 +31,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV PIP_NO_CACHE_DIR=1
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 WORKDIR /app
 

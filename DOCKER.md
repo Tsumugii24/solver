@@ -1,6 +1,7 @@
 # Docker 一键部署
 
 把 **系统依赖 + Apache Arrow + 编译好的 `console_solver` + Python 流水线依赖** 全部打进镜像。  
+基础系统：**Ubuntu 24.04 LTS (noble)**。  
 在新服务器上只需 `docker pull` 一次，即可直接跑 `run_pipeline.py`，无需再装 Miniconda、apt 包或现场编译。
 
 > **安全提示**：不要把 Hugging Face Token 写进镜像或提交到 Git。运行时通过环境变量传入（见下文）。
@@ -11,6 +12,7 @@
 
 | 组件 | 说明 |
 |------|------|
+| 基础镜像 | Ubuntu 24.04 LTS (noble) |
 | `install/console_solver` | 构建阶段用 `compile.sh --skip-deps` 预编译 |
 | Apache Arrow / Parquet | C++ 库（solver 原生 parquet 导出） |
 | Python 包 | `pyarrow`、`huggingface_hub`、`tqdm`、`openpyxl` |

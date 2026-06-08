@@ -2,7 +2,7 @@
 # Install apt packages required to compile console_solver (mirrors compile.sh).
 set -euo pipefail
 
-UBUNTU_CODENAME="${UBUNTU_CODENAME:-jammy}"
+UBUNTU_CODENAME="${UBUNTU_CODENAME:-noble}"
 
 export DEBIAN_FRONTEND=noninteractive
 
