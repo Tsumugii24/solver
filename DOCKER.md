@@ -31,15 +31,14 @@ export GH_TOKEN=ghp_xxxx
 export SECRETS_DIR=~/solver-secrets
 ./scripts/bootstrap-secrets.sh    # clone 私有仓，首次会提示编辑 ~/solver-secrets/.env
 
-# 2. 编辑 secrets 后再次 bootstrap（下载 Clash config）
+# 2. 编辑 secrets 后可直接跑 pipeline（Clash 订阅由容器启动时自动下载）
 nano ~/solver-secrets/.env
-./scripts/bootstrap-secrets.sh
 
 # 3. 构建或 pull 镜像
 docker compose build
 # 或: export SOLVER_IMAGE=ghcr.io/tsumugii24/solver-pipeline:latest
 
-# 4. 只写牌面范围；HF_REPO_ID 已在 secrets/.env
+# 4. 只写牌面范围；HF_REPO_ID、CLASH_SUBSCRIPTION_URL 已在 secrets/.env
 ./scripts/run-pipeline.sh 1-20
 ```
 

@@ -22,13 +22,8 @@ SECRETS_DIR="${SECRETS_DIR:-${HOME}/solver-secrets}"
 export SECRETS_DIR
 
 if [[ ! -f "$SECRETS_DIR/.env" ]]; then
-    echo "[错误] 未找到 $SECRETS_DIR/.env，请先运行: ./scripts/bootstrap-secrets.sh" >&2
-    exit 1
-fi
-
-if [[ ! -f "$SECRETS_DIR/clash/config.yaml" ]]; then
-    echo "[错误] 未找到 $SECRETS_DIR/clash/config.yaml" >&2
-    echo "  在 secrets 目录运行: ./scripts/update-clash-config.sh" >&2
+    echo "[错误] 未找到 $SECRETS_DIR/.env" >&2
+    echo "  首次请运行: ./scripts/bootstrap-secrets.sh" >&2
     exit 1
 fi
 
@@ -36,6 +31,12 @@ fi
 set -a
 source "$SECRETS_DIR/.env"
 set +a
+
+if [[ -z "${CLASH_SUBSCRIPTION_URL:-}" && ! -f "$SECRETS_DIR/clash/config.yaml" ]]; then
+    echo "[错误] 请在 $SECRETS_DIR/.env 设置 CLASH_SUBSCRIPTION_URL" >&2
+    echo "  （容器启动时会自动下载；也可手动放置 clash/config.yaml）" >&2
+    exit 1
+fi
 
 REPO_ID="${HF_REPO_ID:-}"
 PIPELINE_ARGS=()
@@ -70,8 +71,9 @@ trap cleanup EXIT
 
 echo "[pipeline] SECRETS_DIR=$SECRETS_DIR"
 echo "[pipeline] HF_REPO_ID=$REPO_ID"
+echo "[pipeline] Clash: 启动时从 .env 拉订阅"
 echo "[pipeline] args: ${PIPELINE_ARGS[*]:-(none)}"
 
-"${COMPOSE[@]}" --profile proxy up -d clash
+"${COMPOSE[@]}" --profile proxy up -d --build clash
 "${COMPOSE[@]}" --profile proxy run --rm pipeline \
     python3 run_pipeline.py "${PIPELINE_ARGS[@]}" --repo-id "$REPO_ID"

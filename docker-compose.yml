@@ -1,16 +1,20 @@
 services:
   clash:
     profiles: ["proxy"]
-    image: metacubex/mihomo:latest
+    build:
+      context: ./docker
+      dockerfile: clash.Dockerfile
     restart: unless-stopped
+    env_file:
+      - ${SECRETS_DIR:?Set SECRETS_DIR to solver-secrets path}/.env
     volumes:
-      - ${SECRETS_DIR:?Set SECRETS_DIR to solver-secrets path}/clash/config.yaml:/root/.config/mihomo/config.yaml:ro
+      - ${SECRETS_DIR}/clash:/clash-work
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:7890 || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 12
-      start_period: 10s
+      start_period: 15s
 
   pipeline:
     build:

@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# 克隆或更新 GitHub 私有仓 solver-secrets，并刷新 Clash 配置。
+# 克隆或更新 GitHub 私有仓 solver-secrets（只需 .env，Clash 配置由容器启动时自动拉取）
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-SECRETS_REPO="${SECRETS_REPO:-https://github.com/Tsumugii24/solver-secrets.git}"
 SECRETS_DIR="${SECRETS_DIR:-${HOME}/solver-secrets}"
 
 if [[ -f "$REPO_ROOT/.env" ]]; then
@@ -32,21 +31,19 @@ else
     git -C "$SECRETS_DIR" pull --ff-only
 fi
 
+mkdir -p "$SECRETS_DIR/clash"
+
 if [[ ! -f "$SECRETS_DIR/.env" ]]; then
     if [[ -f "$SECRETS_DIR/.env.example" ]]; then
         cp "$SECRETS_DIR/.env.example" "$SECRETS_DIR/.env"
         echo "[secrets] 已从 .env.example 创建 $SECRETS_DIR/.env"
-        echo "[secrets] 请编辑 .env 填写 HF_TOKEN 等，然后重新运行本脚本" >&2
+        echo "[secrets] 请编辑 .env 填写 HF_TOKEN、CLASH_SUBSCRIPTION_URL，然后直接 run-pipeline" >&2
         exit 1
     fi
     echo "[错误] $SECRETS_DIR/.env 不存在" >&2
     exit 1
 fi
 
-if [[ -x "$SECRETS_DIR/scripts/update-clash-config.sh" ]]; then
-    SECRETS_ENV="$SECRETS_DIR/.env" bash "$SECRETS_DIR/scripts/update-clash-config.sh"
-fi
-
 echo "[secrets] 就绪: $SECRETS_DIR"
-echo "  .env:        $SECRETS_DIR/.env"
-echo "  clash config: $SECRETS_DIR/clash/config.yaml"
+echo "  .env: $SECRETS_DIR/.env"
+echo "  Clash: 容器启动时从 CLASH_SUBSCRIPTION_URL 自动下载（无需手动 config.yaml）"
