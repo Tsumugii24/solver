@@ -1,0 +1,31 @@
+services:
+  clash:
+    profiles: ["proxy"]
+    image: metacubex/mihomo:latest
+    restart: unless-stopped
+    volumes:
+      - ${SECRETS_DIR:?Set SECRETS_DIR to solver-secrets path}/clash/config.yaml:/root/.config/mihomo/config.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:7890 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${SOLVER_IMAGE:-solver-pipeline:latest}
+    depends_on:
+      clash:
+        condition: service_healthy
+        required: false
+    env_file:
+      - ${SECRETS_DIR:?Set SECRETS_DIR}/.env
+    environment:
+      HF_REPO_ID: ${HF_REPO_ID:-}
+      HUGGINGFACE_HUB_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - ./results:/app/results
+    # 示例: ./scripts/run-pipeline.sh 1-20

@@ -1,0 +1,13 @@
+.git
+.github
+.vscode
+.idea
+**/__pycache__
+**/*.pyc
+results
+cache
+build
+install
+tmp_log.txt
+*.md
+!DOCKER.md
