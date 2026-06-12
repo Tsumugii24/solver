@@ -178,8 +178,20 @@ dump_result {output_file}
 # preflop range config file
 RANGES_DIR = SCRIPT_DIR / "ranges"
 
+SCENARIO_SUBDIRS = (
+    "sia-sod",
+    "sia-sod-open2",
+    "sia-sod-open2.5",
+    "sia-sod-open3",
+    "soa-sid",
+    "3ia-3od",
+)
+
 SCENARIO_CONFIG = {
     "sia-sod": SIA_SOD_CONFIG,
+    "sia-sod-open2": SIA_SOD_CONFIG,
+    "sia-sod-open2.5": SIA_SOD_CONFIG,
+    "sia-sod-open3": SIA_SOD_CONFIG,
     "soa-sid": SOA_SID_CONFIG,
     "3ia-3od": TOA_TID_CONFIG,
 }
@@ -192,6 +204,38 @@ SCENARIO_DEFAULTS = {
     "soa-sid": {"pot": 5, "effective_stack": 98},
     "3ia-3od": {"pot": 16, "effective_stack": 92},
 }
+
+
+def infer_scenario_from_name(name: str) -> Optional[str]:
+    """根据 dataset / range 文件名（可含 .txt）推断 scenario。"""
+    base = name[:-4] if name.lower().endswith(".txt") else name
+    base = base.lower()
+    if "-3od-" in base or (base.startswith("3ia-") and "3od" in base):
+        return "3ia-3od"
+    if "-sid-" in base or (base.startswith("soa-") and "sid" in base):
+        return "soa-sid"
+    if "open2.5" in base:
+        return "sia-sod-open2.5"
+    if "open3" in base:
+        return "sia-sod-open3"
+    if "open2" in base:
+        return "sia-sod-open2"
+    if "-sod-" in base or (base.startswith("sia-") and "sod" in base):
+        return "sia-sod"
+    return None
+
+
+def infer_scenario_from_range_path(range_file: Path) -> str:
+    """根据 range 文件路径推断 auto_run_solver 的 --scenario。"""
+    try:
+        rel = range_file.resolve().relative_to(RANGES_DIR.resolve())
+    except ValueError:
+        rel = Path(range_file.name)
+    parts = rel.parts
+    if len(parts) >= 2 and parts[0] in SCENARIO_CONFIG:
+        return parts[0]
+    inferred = infer_scenario_from_name(range_file.stem)
+    return inferred if inferred else "sia-sod"
 
 
 def load_ranges_from_file(range_file: Path) -> Tuple[str, str]:
@@ -918,6 +962,9 @@ def main():
   # 3bet 场景，默认使用 pot=16 / effective_stack=92
   python auto_run_solver.py 1-10 --scenario 3ia-3od --range-file 3ia-16.5-3od-13.txt
 
+  # open2.5 场景（ranges/sia-sod-open2.5/ 或文件名含 open2.5），默认 pot=5 / stack=98
+  python auto_run_solver.py 1-10 --scenario sia-sod-open2.5 --range-file sia-16-sod-21.5-open2.5.txt
+
   # 自定义求解参数
   python auto_run_solver.py 1-10 --scenario sia-sod --range-file sia-12-sod-30.txt --thread-num 8 --max-iteration 500
         """
@@ -935,13 +982,13 @@ def main():
         "--pot",
         type=int,
         default=None,
-        help="底池大小（默认: 按场景自动设置；sia-sod/soa-sid=5，3ia-3od=16）",
+        help="底池大小（默认: 按场景自动设置；见 SCENARIO_DEFAULTS）",
     )
     parser.add_argument(
         "--stack",
         type=int,
         default=None,
-        help="有效筹码（默认: 按场景自动设置；sia-sod/soa-sid=98，3ia-3od=92）",
+        help="有效筹码（默认: 按场景自动设置；见 SCENARIO_DEFAULTS）",
     )
     parser.add_argument("--thread-num", type=int, default=-1, help="线程数（默认: -1，使用所有核心）")
     parser.add_argument("--use-isomorphism", type=int, choices=[0, 1], default=1, help="是否启用花色同构（默认: 1）")
@@ -979,7 +1026,7 @@ def main():
         type=str,
         required=True,
         choices=list(SCENARIO_CONFIG.keys()),
-        help="场景类型：sia-sod、soa-sid 或 3ia-3od，决定使用的配置模板和 range 目录",
+        help="场景类型，决定使用的配置模板、range 目录及默认 pot/stack",
     )
     parser.add_argument(
         "--range-file",

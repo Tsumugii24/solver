@@ -19,20 +19,34 @@
 环境变量:
   HF_TOKEN 或 HUGGINGFACE_HUB_TOKEN: 未登录时自动用此 token 登录
   HF_REPO_ID: 目标 Hugging Face dataset repo_id；不传则启动时交互输入
+  PIPELINE_STATUS_FILE: 覆盖默认状态文件路径（供外部监控程序读取）
 
   dataset 名（repo_id 最后一段）应对应 ranges 下的 range 文件名（不含路径）：
   例如 dataset 为 sia-12-sod-30 则匹配 ranges/sia-sod/sia-12-sod-30.txt，
   soa-50-sid-30 则匹配 ranges/soa-sid/soa-50-sid-30.txt，
-  3ia-16.5-3od-13 则匹配 ranges/3ia-3od/3ia-16.5-3od-13.txt；
+  3ia-16.5-3od-13 则匹配 ranges/3ia-3od/3ia-16.5-3od-13.txt，
+  sia-16-sod-21.5-open2.5 则匹配 ranges/sia-sod-open2.5/ 或文件名含 open2.5；
   根目录遗留的 sia-100bb.txt 仍可匹配。
+
+外部监控:
+  运行时会写入 JSON 状态文件（默认 /var/run/solver_running_status.json），包含
+  repo_id、scenario、当前 batch、pid 等。路径与 solver 工作目录无关，详见
+  docs/PIPELINE_STATUS.md。SSH 监控程序可直接读取，例如:
+
+    cat /var/run/solver_running_status.json
+    jq -r '.repo_id' /var/run/solver_running_status.json
 """
 
 import argparse
+import atexit
+import json
 import os
+import socket
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 if str(SCRIPT_DIR) not in sys.path:
@@ -44,7 +58,87 @@ SUPPORTED_EXPORT_FORMATS = ["json"] if sys.platform == "win32" else ["json", "pa
 SUPPORTED_UPLOAD_FORMATS = ["json", "parquet"]
 DEFAULT_EXPORT_FORMAT = "json" if sys.platform == "win32" else "parquet"
 DEFAULT_UPLOAD_FORMAT = "parquet"
-SCENARIO_SUBDIRS = ("sia-sod", "soa-sid", "3ia-3od")
+def _default_pipeline_status_file() -> Path:
+    """固定默认路径，与 solver 当前工作目录无关，便于外部监控统一读取。"""
+    if sys.platform == "win32":
+        base = Path(os.environ.get("PROGRAMDATA", "C:/ProgramData"))
+        return base / "solver" / "solver_running_status.json"
+    return Path("/var/run/solver_running_status.json")
+
+
+DEFAULT_PIPELINE_STATUS_FILE = _default_pipeline_status_file()
+
+from auto_run_solver import (
+    SCENARIO_SUBDIRS,
+    infer_scenario_from_name,
+    infer_scenario_from_range_path,
+)
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _resolve_status_file(cli_path: Optional[str]) -> Path:
+    if cli_path:
+        return Path(cli_path).expanduser().resolve()
+    env_path = os.environ.get("PIPELINE_STATUS_FILE", "").strip()
+    if env_path:
+        return Path(env_path).expanduser().resolve()
+    return DEFAULT_PIPELINE_STATUS_FILE.resolve()
+
+
+def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    tmp_path.replace(path)
+
+
+class PipelineStatusTracker:
+    """将 pipeline 运行状态写入 JSON，供外部 SSH 监控程序读取。"""
+
+    def __init__(self, path: Path):
+        self.path = path
+        self._data: Dict[str, Any] = {
+            "started_at": _utc_now(),
+            "pid": os.getpid(),
+            "host": socket.gethostname(),
+            "status_file": str(path),
+        }
+        self._finalized = False
+        atexit.register(self._atexit_finalize)
+
+    def update(self, **fields: Any) -> None:
+        if self._finalized:
+            return
+        self._data.update(fields)
+        self._data["updated_at"] = _utc_now()
+        self._data["pid"] = os.getpid()
+        self._flush()
+
+    def finalize(self, status: str, **fields: Any) -> None:
+        if self._finalized:
+            return
+        self._finalized = True
+        self._data["status"] = status
+        self._data.update(fields)
+        self._data["finished_at"] = _utc_now()
+        self._data["updated_at"] = self._data["finished_at"]
+        self._data["pid"] = os.getpid()
+        self._flush()
+
+    def _atexit_finalize(self) -> None:
+        if not self._finalized:
+            self.finalize("exited")
+
+    def _flush(self) -> None:
+        try:
+            _atomic_write_json(self.path, self._data)
+        except OSError as e:
+            print(f"[警告] 无法写入 pipeline 状态文件 {self.path}: {e}")
 
 
 def _run(cmd: list, cwd: Path = None) -> bool:
@@ -281,15 +375,7 @@ def _repo_id_to_range_filename(repo_id: str) -> str:
 
 def _infer_scenario_subdir_for_dataset(dataset_name: str) -> Optional[str]:
     """根据 dataset / 文件名推断应落在 ranges/<subdir>/ 下的子目录。"""
-    base = dataset_name[:-4] if dataset_name.lower().endswith(".txt") else dataset_name
-    base = base.lower()
-    if "-3od-" in base or (base.startswith("3ia-") and "3od" in base):
-        return "3ia-3od"
-    if "-sod-" in base or (base.startswith("sia-") and "sod" in base):
-        return "sia-sod"
-    if "-sid-" in base or (base.startswith("soa-") and "sid" in base):
-        return "soa-sid"
-    return None
+    return infer_scenario_from_name(dataset_name)
 
 
 def _list_range_txt_for_errors() -> list[str]:
@@ -346,26 +432,6 @@ def _find_range_file(repo_id: str) -> Optional[Path]:
                 return f
 
     return None
-
-
-def _scenario_for_range_path(range_file: Path) -> str:
-    """根据 range 文件路径推断 auto_run_solver 的 --scenario。"""
-    try:
-        rel = range_file.resolve().relative_to(RANGES_DIR.resolve())
-    except ValueError:
-        rel = Path(range_file.name)
-    parts = rel.parts
-    if len(parts) >= 2 and parts[0] in SCENARIO_SUBDIRS:
-        return parts[0]
-    stem = range_file.stem.lower()
-    if "-3od-" in stem or (stem.startswith("3ia-") and "3od" in stem):
-        return "3ia-3od"
-    if stem.startswith("soa-") and "sid" in stem:
-        return "soa-sid"
-    if "-sod-" in stem or (stem.startswith("sia-") and "sod" in stem):
-        return "sia-sod"
-    # 根目录遗留（如 sia-100bb.txt）：与旧版一致，按 sia-sod 模板
-    return "sia-sod"
 
 
 def _load_ranges_from_file(range_file: Path) -> tuple[str, str]:
@@ -625,6 +691,17 @@ def main():
         choices=SUPPORTED_UPLOAD_FORMATS,
         help=f"最终上传到 Hugging Face 的格式（默认: {DEFAULT_UPLOAD_FORMAT}）",
     )
+    parser.add_argument(
+        "--status-file",
+        type=str,
+        default=None,
+        help=f"pipeline 状态 JSON 输出路径（默认: {DEFAULT_PIPELINE_STATUS_FILE}，可用 PIPELINE_STATUS_FILE 覆盖）",
+    )
+    parser.add_argument(
+        "--no-status-file",
+        action="store_true",
+        help="不写入 pipeline 状态文件",
+    )
     args = parser.parse_args()
 
     if not args.no_upload and not args.convert_only:
@@ -769,80 +846,144 @@ def main():
 
     do_upload = not args.no_upload
     upload_failures = 0
+    tracker: Optional[PipelineStatusTracker] = None
+    if not args.no_status_file:
+        status_file = _resolve_status_file(args.status_file)
+        tracker = PipelineStatusTracker(status_file)
+        scenario = infer_scenario_from_range_path(range_file) if range_file else None
+        try:
+            rel_range = str(range_file.resolve().relative_to(SCRIPT_DIR)) if range_file else None
+        except ValueError:
+            rel_range = range_file.name if range_file else None
+        tracker.update(
+            status="running",
+            repo_id=repo_id,
+            dataset_name=_dataset_name_from_repo_id(repo_id) if repo_id else None,
+            scenario=scenario,
+            range_file=rel_range,
+            upload_enabled=do_upload,
+            convert_only=args.convert_only,
+            no_upload=args.no_upload,
+            total_tasks=len(indices),
+            total_batches=len(batches),
+            current_batch=0,
+            export_format=args.export_format,
+            upload_format=args.upload_format,
+            cards_file=args.file,
+            batch_size=batch_size,
+            command=" ".join(sys.argv),
+        )
+        print(f"[Status] 外部可读状态文件: {status_file}")
 
-    if args.convert_only:
-        print("\n[Mode] Only process existing results and upload (no solver)")
-        if _count_json() == 0 and _count_parquet() == 0:
-            print("[Info] results directory has no JSON or Parquet files")
+    try:
+        if args.convert_only:
+            print("\n[Mode] Only process existing results and upload (no solver)")
+            if _count_json() == 0 and _count_parquet() == 0:
+                print("[Info] results directory has no JSON or Parquet files")
+                if tracker:
+                    tracker.finalize("completed", message="no artifacts to process")
+                sys.exit(0)
+            _process_artifacts(do_upload, repo_id=repo_id, upload_format=args.upload_format)
+            print("\n[Completed]")
+            if tracker:
+                tracker.finalize("completed", mode="convert_only")
             sys.exit(0)
-        _process_artifacts(do_upload, repo_id=repo_id, upload_format=args.upload_format)
-        print("\n[Completed]")
-        sys.exit(0)
 
-    for i, batch in enumerate(batches, 1):
-        expr = _compress_indices(batch)
-        print(f"\n{'='*60}")
-        print(f"[Batch {i}/{len(batches)}] Solving: {expr}")
-        print("=" * 60)
+        for i, batch in enumerate(batches, 1):
+            expr = _compress_indices(batch)
+            if tracker:
+                tracker.update(
+                    current_batch=i,
+                    batch_expr=expr,
+                    batch_size_current=len(batch),
+                )
+            print(f"\n{'='*60}")
+            print(f"[Batch {i}/{len(batches)}] Solving: {expr}")
+            print("=" * 60)
 
-        solver_cmd = [
-            sys.executable, str(SCRIPT_DIR / "auto_run_solver.py"),
-            expr,
-            "--file", args.file,
-            "--scenario", _scenario_for_range_path(range_file),
-            "--range-file", range_file.name,
-            "--thread-num", str(args.thread_num),
-            "--use-isomorphism", str(args.use_isomorphism),
-            "--max-iteration", str(args.max_iteration),
-            "--dump-format", args.export_format,
-        ]
-        if args.stall_timeout is not None:
-            solver_cmd.extend(["--stall-timeout", str(args.stall_timeout)])
-        if args.no_output_timeout is not None:
-            solver_cmd.extend(["--no-output-timeout", str(args.no_output_timeout)])
-        if args.estimate_memory:
-            solver_cmd.append("--estimate-memory")
-        if not _run(solver_cmd):
-            print(f"[Failed] Solver batch {i} not fully successful, continue to next batch")
+            solver_cmd = [
+                sys.executable, str(SCRIPT_DIR / "auto_run_solver.py"),
+                expr,
+                "--file", args.file,
+                "--scenario", infer_scenario_from_range_path(range_file),
+                "--range-file", range_file.name,
+                "--thread-num", str(args.thread_num),
+                "--use-isomorphism", str(args.use_isomorphism),
+                "--max-iteration", str(args.max_iteration),
+                "--dump-format", args.export_format,
+            ]
+            if args.stall_timeout is not None:
+                solver_cmd.extend(["--stall-timeout", str(args.stall_timeout)])
+            if args.no_output_timeout is not None:
+                solver_cmd.extend(["--no-output-timeout", str(args.no_output_timeout)])
+            if args.estimate_memory:
+                solver_cmd.append("--estimate-memory")
+            if not _run(solver_cmd):
+                print(f"[Failed] Solver batch {i} not fully successful, continue to next batch")
+                if tracker:
+                    tracker.update(last_solver_success=False)
 
-        export_count = _count_export_files(args.export_format)
-        if export_count >= batch_size:
+            export_count = _count_export_files(args.export_format)
+            if export_count >= batch_size:
+                json_count = _count_json()
+                parquet_count = _count_parquet()
+                print(
+                    f"\n[Upload] {export_count} files in results/ "
+                    f"(JSON={json_count}, Parquet={parquet_count}, threshold={batch_size})"
+                )
+                if tracker:
+                    tracker.update(
+                        phase="uploading",
+                        pending_export_count=export_count,
+                    )
+                ok = _process_artifacts(do_upload, repo_id=repo_id, upload_format=args.upload_format)
+                if ok:
+                    print("[Upload] Success")
+                    if tracker:
+                        tracker.update(phase="solving", last_upload_success=True)
+                else:
+                    upload_failures += 1
+                    print("[Upload] Failed after retries, files kept in results/ for next attempt")
+                    if tracker:
+                        tracker.update(phase="solving", last_upload_success=False)
+
+        remaining = _count_export_files(args.export_format)
+        if remaining > 0:
             json_count = _count_json()
             parquet_count = _count_parquet()
-            print(
-                f"\n[Upload] {export_count} files in results/ "
-                f"(JSON={json_count}, Parquet={parquet_count}, threshold={batch_size})"
-            )
+            print(f"\n[Cleanup] {remaining} files remaining in results/ "
+                  f"(JSON={json_count}, Parquet={parquet_count})")
+            if tracker:
+                tracker.update(phase="cleanup", pending_export_count=remaining)
             ok = _process_artifacts(do_upload, repo_id=repo_id, upload_format=args.upload_format)
             if ok:
-                print("[Upload] Success")
+                print("[Cleanup] Upload success")
             else:
                 upload_failures += 1
-                print("[Upload] Failed after retries, files kept in results/ for next attempt")
+                print("[Cleanup] Upload failed, files kept in results/")
 
-    remaining = _count_export_files(args.export_format)
-    if remaining > 0:
-        json_count = _count_json()
-        parquet_count = _count_parquet()
-        print(f"\n[Cleanup] {remaining} files remaining in results/ "
-              f"(JSON={json_count}, Parquet={parquet_count})")
-        ok = _process_artifacts(do_upload, repo_id=repo_id, upload_format=args.upload_format)
-        if ok:
-            print("[Cleanup] Upload success")
+        print("\n" + "=" * 60)
+        if upload_failures > 0:
+            remaining_files = _count_export_files(args.export_format)
+            print(f"[Completed] Pipeline finished with {upload_failures} upload failure(s)")
+            if remaining_files > 0:
+                print(f"  {remaining_files} files remain in results/ — "
+                      f"re-run with --convert-only to retry upload")
+            if tracker:
+                tracker.finalize(
+                    "completed_with_upload_failures",
+                    upload_failures=upload_failures,
+                    remaining_export_files=remaining_files,
+                )
         else:
-            upload_failures += 1
-            print("[Cleanup] Upload failed, files kept in results/")
-
-    print("\n" + "=" * 60)
-    if upload_failures > 0:
-        remaining_files = _count_export_files(args.export_format)
-        print(f"[Completed] Pipeline finished with {upload_failures} upload failure(s)")
-        if remaining_files > 0:
-            print(f"  {remaining_files} files remain in results/ — "
-                  f"re-run with --convert-only to retry upload")
-    else:
-        print("[Completed] Pipeline execution completed")
-    print("=" * 60)
+            print("[Completed] Pipeline execution completed")
+            if tracker:
+                tracker.finalize("completed", upload_failures=0)
+        print("=" * 60)
+    except Exception as e:
+        if tracker:
+            tracker.finalize("failed", error=str(e))
+        raise
 
 
 if __name__ == "__main__":
