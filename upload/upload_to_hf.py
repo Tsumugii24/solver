@@ -35,6 +35,42 @@ except ImportError:
     print("pip install -U huggingface_hub")
     sys.exit(1)
 
+
+def dataset_url(repo_id: str) -> str:
+    return f"https://huggingface.co/datasets/{repo_id}"
+
+
+def resolve_dataset_repo_id(api: HfApi, repo_id: str) -> tuple[str, str | None]:
+    """Resolve repo_id to namespace/name. Bare names use the logged-in user."""
+    if "/" in repo_id:
+        return repo_id, None
+    try:
+        namespace = api.whoami()["name"]
+    except Exception as e:
+        print(f"Cannot resolve namespace for repo_id '{repo_id}': {e}")
+        print("Use user/dataset format or run: huggingface-cli login")
+        sys.exit(1)
+    return f"{namespace}/{repo_id}", namespace
+
+
+def print_upload_plan(
+    root: Path,
+    file_count: int,
+    file_format: str,
+    repo_id_input: str,
+    repo_id: str,
+    auto_namespace: str | None,
+) -> None:
+    print(f"Found {file_count} {file_format} files in {root}")
+    if auto_namespace:
+        print(
+            f"Repo id: {repo_id_input} -> {repo_id} "
+            f"(namespace from logged-in user '{auto_namespace}')"
+        )
+    print(f"Target: {dataset_url(repo_id)}")
+    print(f"HF_XET_HIGH_PERFORMANCE={os.environ.get('HF_XET_HIGH_PERFORMANCE', 'not set')}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Upload result files to HF with Xet")
     parser.add_argument("dir", nargs="?", default="results", help="Directory with result files")
@@ -59,24 +95,23 @@ def main() -> None:
         print(f"No {args.file_format} files found")
         sys.exit(0)
 
-    print(f"Found {len(files)} {args.file_format} files in {root}")
-    print(f"Target: https://huggingface.co/datasets/{args.repo_id}")
-    print(f"HF_XET_HIGH_PERFORMANCE={os.environ.get('HF_XET_HIGH_PERFORMANCE', 'not set')}")
+    api = HfApi()
+    repo_id, auto_namespace = resolve_dataset_repo_id(api, args.repo_id)
+    print_upload_plan(root, len(files), args.file_format, args.repo_id, repo_id, auto_namespace)
     if args.dry_run:
         print("\nDRY RUN - no upload")
         sys.exit(0)
 
-    api = HfApi()
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             print(f"\nAttempt {attempt}/{MAX_RETRIES}")
             api.upload_large_folder(
                 folder_path=str(root),
-                repo_id=args.repo_id,
+                repo_id=repo_id,
                 repo_type="dataset",
                 allow_patterns=pattern,
             )
-            print("Done")
+            print(f"Done: {dataset_url(repo_id)}")
             sys.exit(0)
         except KeyboardInterrupt:
             print("\nUpload interrupted by user")
