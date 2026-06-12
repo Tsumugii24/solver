@@ -186,6 +186,9 @@ SCENARIO_CONFIG = {
 
 SCENARIO_DEFAULTS = {
     "sia-sod": {"pot": 5, "effective_stack": 98},
+    "sia-sod-open2": {"pot": 4, "effective_stack": 98},
+    "sia-sod-open2.5": {"pot": 5, "effective_stack": 98},
+    "sia-sod-open3": {"pot": 6, "effective_stack": 97},
     "soa-sid": {"pot": 5, "effective_stack": 98},
     "3ia-3od": {"pot": 16, "effective_stack": 92},
 }
