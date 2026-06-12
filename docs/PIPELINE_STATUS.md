@@ -42,29 +42,15 @@
 |--------|------|------|
 | 1 | 命令行 `--status-file` | 用户指定绝对/相对路径 |
 | 2 | 环境变量 `PIPELINE_STATUS_FILE` | 用户指定路径 |
-| 3 | 默认（Linux / macOS 服务器） | `/var/run/solver_running_status.json` |
-| 3 | 默认（Windows 本地开发） | `%PROGRAMDATA%\solver\solver_running_status.json` |
+| 3 | 默认 | `~/run/solver_running_status.json`（展开后如 `/home/user/run/solver_running_status.json`） |
 
-启动时控制台会打印实际路径：
+启动时控制台会打印实际绝对路径：
 
 ```
-[Status] 外部可读状态文件: /var/run/solver_running_status.json
+[Status] 外部可读状态文件: /home/user/run/solver_running_status.json
 ```
 
-写入采用「先写 `.tmp` 再原子替换」方式，避免监控程序读到半截 JSON。
-
-### Linux 权限说明
-
-`/var/run` 通常已存在；普通用户能否写入取决于系统策略。若启动时报权限错误，可任选其一：
-
-```bash
-# 预先创建并授权（需 root，一次性）
-sudo touch /var/run/solver_running_status.json
-sudo chown "$USER":"$USER" /var/run/solver_running_status.json
-
-# 或改用环境变量指向用户目录
-export PIPELINE_STATUS_FILE=$HOME/.solver_running_status.json
-```
+首次写入时会自动创建 `~/run/` 目录。写入采用「先写 `.tmp` 再原子替换」方式，避免监控程序读到半截 JSON。
 
 ---
 
@@ -189,13 +175,13 @@ export PIPELINE_STATUS_FILE=$HOME/.solver_running_status.json
 
 ```bash
 python run_pipeline.py 1-20 --repo-id Tsumugii/sia-45-sod-40
-# 状态写入 /var/run/solver_running_status.json
+# 状态写入 ~/run/solver_running_status.json
 ```
 
 ### 自定义路径（环境变量）
 
 ```bash
-export PIPELINE_STATUS_FILE=/var/run/solver_status.json
+export PIPELINE_STATUS_FILE=$HOME/run/solver_running_status.json
 python run_pipeline.py 1-20 --repo-id Tsumugii/sia-45-sod-40
 ```
 
@@ -204,7 +190,7 @@ python run_pipeline.py 1-20 --repo-id Tsumugii/sia-45-sod-40
 ```bash
 python run_pipeline.py 1-20 \
   --repo-id Tsumugii/sia-45-sod-40 \
-  --status-file /var/run/solver_status.json
+  --status-file $HOME/run/solver_running_status.json
 ```
 
 ### 关闭状态写入
@@ -222,26 +208,26 @@ python run_pipeline.py 1-20 --no-upload --no-status-file
 ### 查看完整状态
 
 ```bash
-ssh user@server 'cat /var/run/solver_running_status.json'
+ssh user@server 'cat ~/run/solver_running_status.json'
 ```
 
 ### 只读取 repo_id
 
 ```bash
-ssh user@server 'jq -r ".repo_id" /var/run/solver_running_status.json'
+ssh user@server 'jq -r ".repo_id" ~/run/solver_running_status.json'
 ```
 
 ### 仅在运行中时读取 repo_id
 
 ```bash
-ssh user@server 'jq -r "select(.status==\"running\") | .repo_id" /var/run/solver_running_status.json'
+ssh user@server 'jq -r "select(.status==\"running\") | .repo_id" ~/run/solver_running_status.json'
 ```
 
 ### 确认进程是否存活
 
 ```bash
 ssh user@server 'bash -s' <<'EOF'
-STATUS_FILE=/var/run/solver_running_status.json
+STATUS_FILE=~/run/solver_running_status.json
 PID=$(jq -r '.pid' "$STATUS_FILE")
 STATUS=$(jq -r '.status' "$STATUS_FILE")
 REPO=$(jq -r '.repo_id' "$STATUS_FILE")
@@ -260,7 +246,7 @@ EOF
 import json
 from pathlib import Path
 
-status_path = Path("/var/run/solver_running_status.json")
+status_path = Path.home() / "run" / "solver_running_status.json"
 data = json.loads(status_path.read_text(encoding="utf-8"))
 
 if data.get("status") == "running":
@@ -373,7 +359,7 @@ python run_pipeline.py 1-10 --repo-id Tsumugii/3ia-16.5-3od-13
   "started_at": "2026-06-13T10:00:00Z",
   "pid": 12345,
   "host": "solver-01",
-  "status_file": "/var/run/solver_running_status.json",
+  "status_file": "/home/user/run/solver_running_status.json",
   "status": "running",
   "repo_id": "Tsumugii/3ia-16.5-3od-13",
   "dataset_name": "3ia-16.5-3od-13",
@@ -417,5 +403,5 @@ python run_pipeline.py 1-10 --repo-id Tsumugii/3ia-16.5-3od-13
 |------|------|
 | `run_pipeline.py` | 流水线主程序，内含 `PipelineStatusTracker` |
 | `auto_run_solver.py` | 被 pipeline 调用的批量求解脚本 |
-| `/var/run/solver_running_status.json` | 默认状态输出（运行时生成，勿提交到 git） |
+| `~/run/solver_running_status.json` | 默认状态输出（运行时生成，勿提交到 git） |
 | `docs/PARAMETERS_DOC.md` | solver 配置参数说明 |

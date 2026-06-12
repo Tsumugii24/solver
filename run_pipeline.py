@@ -29,12 +29,12 @@
   根目录遗留的 sia-100bb.txt 仍可匹配。
 
 外部监控:
-  运行时会写入 JSON 状态文件（默认 /var/run/solver_running_status.json），包含
+  运行时会写入 JSON 状态文件（默认 ~/run/solver_running_status.json），包含
   repo_id、scenario、当前 batch、pid 等。路径与 solver 工作目录无关，详见
   docs/PIPELINE_STATUS.md。SSH 监控程序可直接读取，例如:
 
-    cat /var/run/solver_running_status.json
-    jq -r '.repo_id' /var/run/solver_running_status.json
+    cat ~/run/solver_running_status.json
+    jq -r '.repo_id' ~/run/solver_running_status.json
 """
 
 import argparse
@@ -59,11 +59,8 @@ SUPPORTED_UPLOAD_FORMATS = ["json", "parquet"]
 DEFAULT_EXPORT_FORMAT = "json" if sys.platform == "win32" else "parquet"
 DEFAULT_UPLOAD_FORMAT = "parquet"
 def _default_pipeline_status_file() -> Path:
-    """固定默认路径，与 solver 当前工作目录无关，便于外部监控统一读取。"""
-    if sys.platform == "win32":
-        base = Path(os.environ.get("PROGRAMDATA", "C:/ProgramData"))
-        return base / "solver" / "solver_running_status.json"
-    return Path("/var/run/solver_running_status.json")
+    """固定默认路径（用户家目录下），与 solver 当前工作目录无关，且无需 root 权限。"""
+    return Path.home() / "run" / "solver_running_status.json"
 
 
 DEFAULT_PIPELINE_STATUS_FILE = _default_pipeline_status_file()
