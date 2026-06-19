@@ -3,8 +3,8 @@
 自动化流水线：Solver → JSON/Parquet → Hugging Face
 
 每个 batch 求解完成后，检查 results/ 目录下文件数量。达到 batch_size 阈值时
-尝试上传（最多重试 5 次）。若上传失败，文件留在 results/ 目录，和后续 batch
-的结果一起累积，在下一次达到阈值时再次尝试上传。
+尝试上传一次（默认 120 秒超时）。若上传失败或超时，文件留在 results/ 目录，
+本轮关闭中途上传，仅继续求解；全部求解完成后再统一尝试上传一次。
 
 用法:
   python run_pipeline.py                         # 默认求解全部牌面
@@ -58,6 +58,7 @@ SUPPORTED_EXPORT_FORMATS = ["json"] if sys.platform == "win32" else ["json", "pa
 SUPPORTED_UPLOAD_FORMATS = ["json", "parquet"]
 DEFAULT_EXPORT_FORMAT = "json" if sys.platform == "win32" else "parquet"
 DEFAULT_UPLOAD_FORMAT = "parquet"
+DEFAULT_UPLOAD_ATTEMPT_TIMEOUT_SECONDS = 120
 def _default_pipeline_status_file() -> Path:
     """固定默认路径（用户家目录下），与 solver 当前工作目录无关，且无需 root 权限。"""
     return Path.home() / "run" / "solver_running_status.json"
@@ -140,9 +141,14 @@ class PipelineStatusTracker:
 
 def _run(cmd: list, cwd: Path = None) -> bool:
     """执行命令，返回是否成功"""
+    return _run_code(cmd, cwd=cwd) == 0
+
+
+def _run_code(cmd: list, cwd: Path = None) -> int:
+    """执行命令，返回退出码。"""
     cwd = cwd or SCRIPT_DIR
     r = subprocess.run(cmd, cwd=str(cwd))
-    return r.returncode == 0
+    return r.returncode
 
 
 def _parse_range(expr: str, max_val: int) -> list:
@@ -272,6 +278,14 @@ def _count_upload_files_in_dir(directory: Path, upload_format: str) -> int:
     return _count_json_in_dir(directory) if upload_format == "json" else _count_parquet_in_dir(directory)
 
 
+def _count_pending_result_files(export_format: str, upload_format: str) -> int:
+    if export_format == upload_format:
+        return _count_export_files(export_format)
+    count = _count_export_files(export_format)
+    count += _count_upload_files_in_dir(RESULTS_DIR, upload_format)
+    return count
+
+
 def _delete_json_in_dir(directory: Path) -> int:
     if not directory.is_dir():
         return 0
@@ -310,26 +324,27 @@ def _process_artifacts_in_dir(
     upload: bool,
     repo_id: Optional[str] = None,
     upload_format: str = DEFAULT_UPLOAD_FORMAT,
-) -> bool:
+    upload_attempt_timeout: int = DEFAULT_UPLOAD_ATTEMPT_TIMEOUT_SECONDS,
+) -> tuple[bool, int]:
     json_count = _count_json_in_dir(target_dir)
     ok = True
 
     if upload_format == "parquet" and json_count > 0:
         if not _ensure_pyarrow():
-            return False
+            return False, 1
         ok = _run([sys.executable, str(UPLOAD_DIR / "batch_json_to_parquet.py"), str(target_dir)])
         if not ok:
-            return False
+            return False, 1
 
     ready_count = _count_upload_files_in_dir(target_dir, upload_format)
     if ready_count == 0:
-        return ok
+        return ok, 0
 
     if ok and upload:
         if not repo_id:
             print("[Error] Missing Hugging Face repo_id")
-            return False
-        ok = _run([
+            return False, 1
+        upload_code = _run_code([
             sys.executable,
             str(UPLOAD_DIR / "upload_to_hf.py"),
             str(target_dir),
@@ -337,20 +352,29 @@ def _process_artifacts_in_dir(
             repo_id,
             "--file-format",
             upload_format,
+            "--attempt-timeout",
+            str(upload_attempt_timeout),
+            "--max-retries",
+            "1",
         ])
-        if ok:
-            deleted = _delete_json_in_dir(target_dir) if upload_format == "json" else _delete_parquets_in_dir(target_dir)
-            if deleted > 0:
-                print(f"[Cleanup] Deleted {deleted} uploaded {upload_format} files")
-    return ok
+        ok = upload_code == 0
+        return ok, upload_code
+    return ok, 0
 
 
 def _process_artifacts(
     upload: bool,
     repo_id: Optional[str] = None,
     upload_format: str = DEFAULT_UPLOAD_FORMAT,
-) -> bool:
-    return _process_artifacts_in_dir(RESULTS_DIR, upload, repo_id=repo_id, upload_format=upload_format)
+    upload_attempt_timeout: int = DEFAULT_UPLOAD_ATTEMPT_TIMEOUT_SECONDS,
+) -> tuple[bool, int]:
+    return _process_artifacts_in_dir(
+        RESULTS_DIR,
+        upload,
+        repo_id=repo_id,
+        upload_format=upload_format,
+        upload_attempt_timeout=upload_attempt_timeout,
+    )
 
 
 def _dataset_name_from_repo_id(repo_id: str) -> str:
@@ -689,6 +713,12 @@ def main():
         help=f"最终上传到 Hugging Face 的格式（默认: {DEFAULT_UPLOAD_FORMAT}）",
     )
     parser.add_argument(
+        "--upload-attempt-timeout",
+        type=int,
+        default=int(os.environ.get("HF_UPLOAD_ATTEMPT_TIMEOUT", DEFAULT_UPLOAD_ATTEMPT_TIMEOUT_SECONDS)),
+        help="单次 HF 上传尝试超时秒数，超时后关闭中途上传，仅求解，最后统一再试一次（默认: 120，可用 HF_UPLOAD_ATTEMPT_TIMEOUT 覆盖）",
+    )
+    parser.add_argument(
         "--status-file",
         type=str,
         default=None,
@@ -734,6 +764,7 @@ def main():
     print(f"Solver Batches: {len(batches)}, max {batch_size} per batch")
     print(f"Export Format: {args.export_format}")
     print(f"Upload Format: {args.upload_format}")
+    print(f"Upload Attempt Timeout: {args.upload_attempt_timeout}s")
     print(f"Estimate Memory: {'enabled' if args.estimate_memory else 'disabled'}")
     print(f"Trigger Condition: When export artifacts count >= {batch_size}, move to background for processing and uploading")
     if sys.platform == "win32" and args.export_format == "json" and args.upload_format == "parquet":
@@ -843,6 +874,7 @@ def main():
 
     do_upload = not args.no_upload
     upload_failures = 0
+    upload_disabled_due_network = False
     tracker: Optional[PipelineStatusTracker] = None
     if not args.no_status_file:
         status_file = _resolve_status_file(args.status_file)
@@ -880,7 +912,27 @@ def main():
                 if tracker:
                     tracker.finalize("completed", message="no artifacts to process")
                 sys.exit(0)
-            _process_artifacts(do_upload, repo_id=repo_id, upload_format=args.upload_format)
+            ok, _ = _process_artifacts(
+                do_upload,
+                repo_id=repo_id,
+                upload_format=args.upload_format,
+                upload_attempt_timeout=args.upload_attempt_timeout,
+            )
+            if not ok:
+                remaining_files = _count_pending_result_files(args.export_format, args.upload_format)
+                print("[Completed] Final upload failed")
+                print(
+                    f"本地 results 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
+                    f"尝试使用命令 python upload.py --repo-id {repo_id} 进行手动上传"
+                )
+                if tracker:
+                    tracker.finalize(
+                        "completed_with_upload_failures",
+                        mode="convert_only",
+                        upload_failures=1,
+                        remaining_export_files=remaining_files,
+                    )
+                sys.exit(1)
             print("\n[Completed]")
             if tracker:
                 tracker.finalize("completed", mode="convert_only")
@@ -933,18 +985,37 @@ def main():
                         phase="uploading",
                         pending_export_count=export_count,
                     )
-                ok = _process_artifacts(do_upload, repo_id=repo_id, upload_format=args.upload_format)
-                if ok:
-                    print("[Upload] Success")
-                    if tracker:
-                        tracker.update(phase="solving", last_upload_success=True)
+                if do_upload:
+                    ok, upload_code = _process_artifacts(
+                        True,
+                        repo_id=repo_id,
+                        upload_format=args.upload_format,
+                        upload_attempt_timeout=args.upload_attempt_timeout,
+                    )
+                    if ok:
+                        print("[Upload] Success")
+                        if tracker:
+                            tracker.update(phase="solving", last_upload_success=True)
+                    else:
+                        upload_failures += 1
+                        do_upload = False
+                        upload_disabled_due_network = True
+                        print("检测到当前网络环境可能存在问题，关闭上传，仅求解。")
+                        print("[Upload] Files kept in results/; will retry one final upload after all solving is done")
+                        if tracker:
+                            tracker.update(
+                                phase="solving",
+                                upload_enabled=False,
+                                upload_disabled_due_network=True,
+                                last_upload_success=False,
+                                last_upload_exit_code=upload_code,
+                            )
                 else:
-                    upload_failures += 1
-                    print("[Upload] Failed after retries, files kept in results/ for next attempt")
+                    print("[Upload] 当前上传已关闭，仅求解；文件保留在 results/，等待最终统一上传")
                     if tracker:
-                        tracker.update(phase="solving", last_upload_success=False)
+                        tracker.update(phase="solving")
 
-        remaining = _count_export_files(args.export_format)
+        remaining = _count_pending_result_files(args.export_format, args.upload_format)
         if remaining > 0:
             json_count = _count_json()
             parquet_count = _count_parquet()
@@ -952,20 +1023,39 @@ def main():
                   f"(JSON={json_count}, Parquet={parquet_count})")
             if tracker:
                 tracker.update(phase="cleanup", pending_export_count=remaining)
-            ok = _process_artifacts(do_upload, repo_id=repo_id, upload_format=args.upload_format)
-            if ok:
-                print("[Cleanup] Upload success")
+            final_upload = not args.no_upload
+            if upload_disabled_due_network and final_upload:
+                print("[Final Upload] 全部求解完成，正在进行最后一次统一上传尝试")
+            ok, upload_code = _process_artifacts(
+                final_upload,
+                repo_id=repo_id,
+                upload_format=args.upload_format,
+                upload_attempt_timeout=args.upload_attempt_timeout,
+            )
+            if ok and final_upload:
+                print("[Final Upload] 最终统一上传成功")
+                upload_failures = 0
+                upload_disabled_due_network = False
+            elif ok:
+                print("[Cleanup] Processed local artifacts; upload disabled")
             else:
                 upload_failures += 1
-                print("[Cleanup] Upload failed, files kept in results/")
+                remaining_files = _count_pending_result_files(args.export_format, args.upload_format)
+                print(f"[Final Upload] 最终统一上传失败 (exit code: {upload_code})")
+                print(
+                    f"本地 results 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
+                    f"尝试使用命令 python upload.py --repo-id {repo_id} 进行手动上传"
+                )
 
         print("\n" + "=" * 60)
-        if upload_failures > 0:
-            remaining_files = _count_export_files(args.export_format)
+        if upload_failures > 0 or upload_disabled_due_network:
+            remaining_files = _count_pending_result_files(args.export_format, args.upload_format)
             print(f"[Completed] Pipeline finished with {upload_failures} upload failure(s)")
             if remaining_files > 0:
-                print(f"  {remaining_files} files remain in results/ — "
-                      f"re-run with --convert-only to retry upload")
+                print(
+                    f"  本地 results 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
+                    f"尝试使用命令 python upload.py --repo-id {repo_id} 进行手动上传"
+                )
             if tracker:
                 tracker.finalize(
                     "completed_with_upload_failures",
