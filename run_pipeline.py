@@ -54,6 +54,7 @@ if str(SCRIPT_DIR) not in sys.path:
 RESULTS_DIR = SCRIPT_DIR / "results"
 UPLOAD_DIR = SCRIPT_DIR / "upload"
 RANGES_DIR = SCRIPT_DIR / "ranges"
+CARDS_DIR = SCRIPT_DIR / "cards"
 SUPPORTED_EXPORT_FORMATS = ["json"] if sys.platform == "win32" else ["json", "parquet", "parquet_native"]
 SUPPORTED_UPLOAD_FORMATS = ["json", "parquet"]
 DEFAULT_EXPORT_FORMAT = "json" if sys.platform == "win32" else "parquet"
@@ -707,6 +708,128 @@ def _load_ranges_from_file(range_file: Path) -> tuple[str, str]:
     return oop, ip
 
 
+def _normalize_range_str(range_str: str) -> str:
+    return "".join(range_str.split())
+
+
+def _parse_cards_solver_config_ranges(config_path: Path) -> tuple[str, str]:
+    """从 cards/<board>.txt 读取 set_range_oop / set_range_ip。"""
+    oop, ip = "", ""
+    with open(config_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("set_range_oop"):
+                oop = line[len("set_range_oop"):].strip()
+            elif line.startswith("set_range_ip"):
+                ip = line[len("set_range_ip"):].strip()
+    return oop, ip
+
+
+def _find_range_file_by_ranges(oop: str, ip: str) -> Optional[Path]:
+    """在 ranges/ 下查找与给定 OOP/IP range 完全一致的配置文件。"""
+    target_oop = _normalize_range_str(oop)
+    target_ip = _normalize_range_str(ip)
+    if not target_oop or not target_ip:
+        return None
+    for path in RANGES_DIR.rglob("*.txt"):
+        if not path.is_file():
+            continue
+        try:
+            file_oop, file_ip = _load_ranges_from_file(path)
+        except ValueError:
+            continue
+        if (
+            _normalize_range_str(file_oop) == target_oop
+            and _normalize_range_str(file_ip) == target_ip
+        ):
+            return path
+    return None
+
+
+def _unuploaded_result_stems() -> list[str]:
+    stems: set[str] = set()
+    if not RESULTS_DIR.is_dir():
+        return []
+    for pattern in ("*.parquet", "*.json"):
+        for path in RESULTS_DIR.glob(pattern):
+            stems.add(path.stem)
+    return sorted(stems)
+
+
+def _warn_unuploaded_results_range_mismatch(current_oop: str, current_ip: str) -> None:
+    """检测 results/ 中未上传结果是否属于与当前任务不同的 range。"""
+    stems = _unuploaded_result_stems()
+    if not stems:
+        return
+
+    from check_missing import parse_repo_id
+
+    current_oop_n = _normalize_range_str(current_oop)
+    current_ip_n = _normalize_range_str(current_ip)
+    mismatches: dict[str, list[str]] = {}
+    matched_count = 0
+
+    for stem in stems:
+        config_path = CARDS_DIR / f"{stem}.txt"
+        if not config_path.is_file():
+            print(
+                f"[警告] results/{stem}.parquet 无对应 cards/{stem}.txt，"
+                "无法校验 range，请确认是否应手动上传"
+            )
+            continue
+
+        file_oop, file_ip = _parse_cards_solver_config_ranges(config_path)
+        if not file_oop or not file_ip:
+            print(
+                f"[警告] cards/{stem}.txt 缺少 set_range_oop/set_range_ip，"
+                "无法校验 range"
+            )
+            continue
+
+        if (
+            _normalize_range_str(file_oop) == current_oop_n
+            and _normalize_range_str(file_ip) == current_ip_n
+        ):
+            matched_count += 1
+            continue
+
+        matched_range = _find_range_file_by_ranges(file_oop, file_ip)
+        if matched_range is not None:
+            dataset_name = matched_range.stem
+        else:
+            dataset_name = "未知 dataset"
+        mismatches.setdefault(dataset_name, []).append(stem)
+
+    if not mismatches:
+        if matched_count == len(stems):
+            print(
+                f"[Range Check] results/ 中 {matched_count} 个未上传结果与当前 range 全部一致"
+            )
+        return
+
+    total = sum(len(v) for v in mismatches.values())
+    print("\n" + "=" * 60)
+    print(f"[Range Mismatch] results/ 中有 {total} 个未上传结果与当前 range 不一致")
+    print("=" * 60)
+    print(f"当前 range 文件对应 OOP/IP 与这些结果求解时使用的 range 不同。")
+    print("请勿将它们上传到当前 dataset；请先手动上传到各自对应的 dataset：\n")
+
+    for dataset_name, boards in sorted(mismatches.items()):
+        preview = ", ".join(boards[:8])
+        suffix = f" ... (+{len(boards) - 8})" if len(boards) > 8 else ""
+        print(f"  dataset: {dataset_name}")
+        print(f"  牌面 ({len(boards)}): {preview}{suffix}")
+        if dataset_name != "未知 dataset":
+            repo_hint = parse_repo_id(dataset_name)
+            print(f"  手动上传: python upload.py --repo-id {repo_hint}")
+        else:
+            print(
+                f"  手动上传: 未在 ranges/ 找到匹配 range，"
+                f"请根据 cards/{{board}}.txt 中的 set_range_* 自行确认 dataset"
+            )
+        print()
+
+
 def _prompt_repo_id() -> tuple[str, Path]:
     """交互式获取 HF dataset repo_id，并验证 ranges/ 下存在匹配的 range 文件。
 
@@ -758,38 +881,97 @@ def _normalize_repo_id(repo_id: str) -> str:
     return normalized
 
 
+def _local_result_board_keys() -> Set[str]:
+    """results/ 下已有导出文件的牌面键（大小写不敏感）。"""
+    keys: Set[str] = set()
+    if not RESULTS_DIR.is_dir():
+        return keys
+    for pattern in ("*.json", "*.parquet"):
+        for path in RESULTS_DIR.glob(pattern):
+            keys.add(path.stem.casefold())
+    return keys
+
+
 def _filter_requested_indices_by_hf(
     repo_id: str,
     requested_indices: list[int],
     cards_file: str,
-) -> tuple[list[int], int, int, int]:
+    *,
+    skip_local_results: bool = True,
+) -> tuple[list[int], int, int, int, list[int]]:
     """
-    根据 Hugging Face dataset 已存在的牌面过滤待求解序号。
+    根据 Hugging Face dataset（及可选的本地 results）过滤待求解序号。
 
     Returns:
-        (remaining_indices, total_repo_existing, skipped_in_requested, total_boards)
+        (remaining_indices, total_repo_existing, skipped_in_requested, total_boards, skipped_indices)
     """
-    from check_missing import board_to_filename, list_boards_in_hf_dataset
+    from check_missing import board_file_key, list_boards_in_hf_dataset
 
     all_boards = _read_all_boards(cards_file)
     boards_in_hf = list_boards_in_hf_dataset(repo_id)
+    boards_local = _local_result_board_keys() if skip_local_results else set()
 
     requested_set = set(requested_indices)
     remaining_indices: list[int] = []
+    skipped_indices: list[int] = []
     total_repo_existing = 0
     skipped_in_requested = 0
 
     for idx, board in enumerate(all_boards, start=1):
-        exists_in_repo = board_to_filename(board) in boards_in_hf
+        board_key = board_file_key(board)
+        exists_in_repo = board_key in boards_in_hf
+        exists_local = board_key in boards_local
         if exists_in_repo:
             total_repo_existing += 1
         if idx in requested_set:
-            if exists_in_repo:
+            if exists_in_repo or exists_local:
                 skipped_in_requested += 1
+                skipped_indices.append(idx)
             else:
                 remaining_indices.append(idx)
 
-    return remaining_indices, total_repo_existing, skipped_in_requested, len(all_boards)
+    return (
+        remaining_indices,
+        total_repo_existing,
+        skipped_in_requested,
+        len(all_boards),
+        skipped_indices,
+    )
+
+
+def _print_hf_resume_info(
+    all_boards: list[str],
+    remaining_indices: list[int],
+    skipped_indices: list[int],
+    batch_size: int,
+) -> None:
+    """打印 HF 扫描后的续跑说明。"""
+    if not remaining_indices:
+        return
+
+    first_batch = remaining_indices[:batch_size]
+    first_expr = _compress_indices(first_batch)
+    first_idx = remaining_indices[0]
+    first_board = all_boards[first_idx - 1]
+
+    print(f"Resume From Index: {first_idx} ({first_board})")
+    print(f"First Batch: {first_expr}")
+
+    if skipped_indices:
+        skipped_expr = _compress_indices(skipped_indices)
+        if len(skipped_expr) > 120:
+            preview = _compress_indices(skipped_indices[:20])
+            print(f"Skipped In HF/local: {len(skipped_indices)} boards, e.g. {preview} ...")
+        else:
+            print(f"Skipped In HF/local: {skipped_expr}")
+
+        if remaining_indices[0] <= 10 and skipped_indices:
+            max_skipped = max(skipped_indices)
+            if max_skipped > remaining_indices[0]:
+                print(
+                    "[Info] HF/local 已有牌面并非 cards.txt 的前 N 个连续序号，"
+                    "将从首个缺失序号继续（不是从最大已完成序号+1）。"
+                )
 
 
 
@@ -989,8 +1171,7 @@ def main():
     print("=" * 60)
     print("Automatic Pipeline: Solver Export → Format Processing → Hugging Face")
     print("=" * 60)
-    print(f"Total Tasks: {len(indices)} boards")
-    print(f"Solver Batches: {len(batches)}, max {batch_size} per batch")
+    print(f"Requested Range: {args.range} ({len(indices)} boards before HF/local skip)")
     print(f"Export Format: {args.export_format}")
     print(f"Upload Format: {args.upload_format}")
     print(f"Upload Attempt Timeout: {args.upload_attempt_timeout}s")
@@ -1037,16 +1218,6 @@ def main():
             print(f"[Error] Invalid repo_id: {e}")
             sys.exit(1)
 
-        # 加载并显示 range 信息
-        try:
-            oop_range, ip_range = _load_ranges_from_file(range_file)
-            print(f"[Range] File: {range_file.name}")
-            print(f"  OOP: {oop_range[:80]}{'...' if len(oop_range) > 80 else ''}")
-            print(f"  IP:  {ip_range[:80]}{'...' if len(ip_range) > 80 else ''}")
-        except Exception as e:
-            print(f"[错误] 读取 range 文件失败: {e}")
-            sys.exit(1)
-
         print(f"[HF] Target Repository: https://huggingface.co/datasets/{repo_id}")
         if not _ensure_hf_logged_in():
             print("[Error] Unable to upload: Please login to HF or set HF_TOKEN")
@@ -1074,13 +1245,26 @@ def main():
             print(f"  ranges/ 下可用: {_list_range_txt_for_errors()}")
             sys.exit(1)
 
+    if range_file and range_file.is_file():
+        try:
+            current_oop, current_ip = _load_ranges_from_file(range_file)
+            print(f"[Range] File: {range_file.name}")
+            print(f"  OOP: {current_oop[:80]}{'...' if len(current_oop) > 80 else ''}")
+            print(f"  IP:  {current_ip[:80]}{'...' if len(current_ip) > 80 else ''}")
+            _warn_unuploaded_results_range_mismatch(current_oop, current_ip)
+        except Exception as e:
+            print(f"[错误] 读取 range 文件失败: {e}")
+            sys.exit(1)
+
     if repo_id and not args.convert_only:
         try:
             requested_count = len(indices)
-            indices, repo_existing_count, skipped_in_requested, total_boards = _filter_requested_indices_by_hf(
-                repo_id=repo_id,
-                requested_indices=indices,
-                cards_file=args.file,
+            indices, repo_existing_count, skipped_in_requested, total_boards, skipped_indices = (
+                _filter_requested_indices_by_hf(
+                    repo_id=repo_id,
+                    requested_indices=indices,
+                    cards_file=args.file,
+                )
             )
         except Exception as e:
             print(f"[Error] Failed to check existing boards in HF dataset: {e}")
@@ -1098,8 +1282,24 @@ def main():
         print(f"Requested Indices: {requested_count}")
         print(f"Already Done In Request: {skipped_in_requested}")
         print(f"Remaining To Solve: {len(indices)}")
+        _print_hf_resume_info(all_boards, indices, skipped_indices, batch_size)
         if not indices:
             print("[Info] Requested range is already complete in the target dataset")
+        print(f"Total Tasks To Solve: {len(indices)} boards")
+        print(f"Solver Batches: {len(batches)}, max {batch_size} per batch")
+        if not indices:
+            pass
+        elif batches:
+            print(f"First Solver Batch: {_compress_indices(batches[0])}")
+    else:
+        print(f"Total Tasks To Solve: {len(indices)} boards")
+        print(f"Solver Batches: {len(batches)}, max {batch_size} per batch")
+        if batches:
+            print(f"First Solver Batch: {_compress_indices(batches[0])}")
+
+    if not indices and repo_id and not args.convert_only:
+        print("[Info] Nothing left to solve; exiting")
+        sys.exit(0)
 
     do_upload = not args.no_upload
     upload_failures = 0

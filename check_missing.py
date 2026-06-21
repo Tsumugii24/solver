@@ -81,7 +81,7 @@ def list_boards_in_hf_dataset(repo_id: str) -> Set[str]:
         if f.lower().endswith(".parquet"):
             stem = Path(f).stem
             if stem:
-                boards.add(stem)
+                boards.add(stem.casefold())
     return boards
 
 
@@ -102,6 +102,14 @@ def read_cards_from_txt(txt_path: Path) -> List[str]:
 def board_to_filename(board: str) -> str:
     """将牌面转换为文件名（去除逗号）"""
     return board.replace(",", "")
+
+
+def board_file_key(board: str) -> str:
+    """牌面 -> 与 HF / results 文件名一致的标准化键（大小写不敏感）。"""
+    from auto_run_solver import board_to_filename as _board_to_filename
+    from auto_run_solver import normalize_board
+
+    return _board_to_filename(normalize_board(board)).casefold()
 
 
 def compress_indices_to_expr(indices: List[int]) -> str:
@@ -143,7 +151,7 @@ def check_missing_from_hf(
     exist_count = 0
 
     for i, board in enumerate(all_boards, start=1):
-        fname = board_to_filename(board)
+        fname = board_file_key(board)
         if fname in boards_in_hf:
             exist_count += 1
         else:
