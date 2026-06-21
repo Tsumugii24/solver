@@ -46,7 +46,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 if str(SCRIPT_DIR) not in sys.path:
@@ -137,6 +137,231 @@ class PipelineStatusTracker:
             _atomic_write_json(self.path, self._data)
         except OSError as e:
             print(f"[警告] 无法写入 pipeline 状态文件 {self.path}: {e}")
+
+
+class PipelineRunSummary:
+    """在 pipeline 退出时打印任务统计与牌面信息。"""
+
+    def __init__(self) -> None:
+        self.started_at = datetime.now()
+        self._printed = False
+        self.exit_reason = "正常结束"
+        self.range_input = "all"
+        self.command = " ".join(sys.argv)
+        self.repo_id: Optional[str] = None
+        self.scenario: Optional[str] = None
+        self.range_file: Optional[str] = None
+        self.all_boards: List[str] = []
+        self.planned_indices: List[int] = []
+        self.batches: List[List[int]] = []
+        self.current_batch = 0
+        self.total_batches = 0
+        self.batch_size = 5
+        self.export_format = DEFAULT_EXPORT_FORMAT
+        self.upload_format = DEFAULT_UPLOAD_FORMAT
+        self.upload_enabled = False
+        self.upload_failures = 0
+        self.upload_disabled_due_network = False
+        self.convert_only = False
+
+    def configure(
+        self,
+        *,
+        range_input: str,
+        repo_id: Optional[str],
+        scenario: Optional[str],
+        range_file: Optional[Path],
+        all_boards: List[str],
+        planned_indices: List[int],
+        batches: List[List[int]],
+        batch_size: int,
+        export_format: str,
+        upload_format: str,
+        upload_enabled: bool,
+        convert_only: bool = False,
+    ) -> None:
+        self.range_input = range_input
+        self.repo_id = repo_id
+        self.scenario = scenario
+        if range_file is not None:
+            try:
+                self.range_file = str(range_file.resolve().relative_to(SCRIPT_DIR))
+            except ValueError:
+                self.range_file = range_file.name
+        self.all_boards = all_boards
+        self.planned_indices = planned_indices
+        self.batches = batches
+        self.total_batches = len(batches)
+        self.batch_size = batch_size
+        self.export_format = export_format
+        self.upload_format = upload_format
+        self.upload_enabled = upload_enabled
+        self.convert_only = convert_only
+        self.command = " ".join(sys.argv)
+
+    def set_batch(self, batch_num: int) -> None:
+        self.current_batch = batch_num
+
+    def set_upload_state(
+        self,
+        *,
+        upload_enabled: Optional[bool] = None,
+        upload_failures: Optional[int] = None,
+        upload_disabled_due_network: Optional[bool] = None,
+    ) -> None:
+        if upload_enabled is not None:
+            self.upload_enabled = upload_enabled
+        if upload_failures is not None:
+            self.upload_failures = upload_failures
+        if upload_disabled_due_network is not None:
+            self.upload_disabled_due_network = upload_disabled_due_network
+
+    def print_summary(self, reason: Optional[str] = None) -> None:
+        if self._printed:
+            return
+        self._printed = True
+        if reason:
+            self.exit_reason = reason
+
+        ended_at = datetime.now()
+        elapsed = (ended_at - self.started_at).total_seconds()
+
+        print("\n" + "=" * 70)
+        print("                    Pipeline 任务统计")
+        print("=" * 70)
+        print(f"\n退出方式: {self.exit_reason}")
+        print(f"开始时间: {self.started_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"结束时间: {ended_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"运行时长: {elapsed:.1f} 秒 ({elapsed / 60:.1f} 分钟)")
+        print(f"启动命令: {self.command}")
+
+        if self.convert_only:
+            print("\n运行模式: convert-only（仅处理本地结果/上传，未运行 solver）")
+        if self.repo_id:
+            print(f"\nHF Dataset: {self.repo_id}")
+            print(f"  URL: https://huggingface.co/datasets/{self.repo_id}")
+        elif self.upload_enabled:
+            print("\nHF Dataset: 未记录（可能为交互输入前的异常退出）")
+        if self.scenario:
+            print(f"场景: {self.scenario}")
+        if self.range_file:
+            print(f"Range 文件: {self.range_file}")
+
+        print(f"\n牌面范围输入: {self.range_input}")
+        if self.planned_indices:
+            planned_expr = _compress_indices(self.planned_indices)
+            print(f"计划求解: {len(self.planned_indices)} 个牌面 ({planned_expr})")
+            self._print_board_table(
+                "计划牌面",
+                [(idx, self.all_boards[idx - 1]) for idx in self.planned_indices],
+            )
+        else:
+            print("计划求解: 0 个牌面")
+
+        if self.total_batches > 0:
+            print(f"\nBatch 配置: 共 {self.total_batches} 批，每批最多 {self.batch_size} 个牌面")
+            print(f"Batch 进度: {self.current_batch}/{self.total_batches}")
+            if self.current_batch > 0:
+                batch = self.batches[self.current_batch - 1]
+                print(
+                    f"当前/最后 Batch #{self.current_batch}: "
+                    f"{_compress_indices(batch)} ({len(batch)} 个牌面)"
+                )
+                self._print_board_table(
+                    f"Batch #{self.current_batch} 牌面",
+                    [(idx, self.all_boards[idx - 1]) for idx in batch],
+                )
+            completed_batches = self.current_batch - 1
+            if completed_batches > 0:
+                completed_indices: List[int] = []
+                for batch in self.batches[:completed_batches]:
+                    completed_indices.extend(batch)
+                print(f"已完成 Batch: 1-{completed_batches} ({len(completed_indices)} 个牌面)")
+                self._print_board_table(
+                    "已完成 Batch 牌面",
+                    [(idx, self.all_boards[idx - 1]) for idx in completed_indices],
+                )
+
+        solved_local = self._boards_with_local_results()
+        pending_local = [
+            (idx, self.all_boards[idx - 1])
+            for idx in self.planned_indices
+            if idx not in {i for i, _ in solved_local}
+        ]
+        pending_count = _count_pending_result_files(self.export_format, self.upload_format)
+        print(f"\n本地 results: {pending_count} 个待处理文件")
+        if solved_local:
+            print(f"已有本地结果: {len(solved_local)} 个牌面")
+            self._print_board_table("已有本地结果牌面", solved_local)
+        if pending_local:
+            print(f"尚无本地结果: {len(pending_local)} 个牌面")
+            self._print_board_table("尚无本地结果牌面", pending_local)
+
+        print("\n上传状态:")
+        if not self.upload_enabled and not self.convert_only:
+            print("  上传: 已关闭（中途因网络问题停用，或使用了 --no-upload）")
+        elif self.convert_only and self.upload_enabled:
+            print("  上传: convert-only 模式")
+        elif self.upload_enabled:
+            print("  上传: 启用")
+        else:
+            print("  上传: 未启用 (--no-upload)")
+        if self.upload_disabled_due_network:
+            print("  网络: 中途上传失败后已切换为仅求解")
+        if self.upload_failures > 0:
+            print(f"  上传失败次数: {self.upload_failures}")
+        if pending_count > 0 and self.repo_id:
+            print(
+                f"  手动上传: python upload.py --repo-id {self.repo_id}"
+            )
+
+        print("\n" + "=" * 70)
+
+    def _result_board_keys(self) -> Set[str]:
+        keys: Set[str] = set()
+        if not RESULTS_DIR.is_dir():
+            return keys
+        patterns: List[str] = []
+        if self.export_format == "json":
+            patterns.append("*.json")
+        else:
+            patterns.append("*.parquet")
+        if self.upload_format == "parquet" and self.export_format != "parquet":
+            patterns.append("*.parquet")
+        elif self.upload_format == "json" and self.export_format != "json":
+            patterns.append("*.json")
+        for pattern in patterns:
+            for path in RESULTS_DIR.glob(pattern):
+                keys.add(path.stem.casefold())
+        return keys
+
+    def _boards_with_local_results(self) -> List[Tuple[int, str]]:
+        from auto_run_solver import board_to_filename
+
+        if not self.planned_indices:
+            return []
+        result_keys = self._result_board_keys()
+        solved: List[Tuple[int, str]] = []
+        for idx in self.planned_indices:
+            board = self.all_boards[idx - 1]
+            if board_to_filename(board).casefold() in result_keys:
+                solved.append((idx, board))
+        return solved
+
+    @staticmethod
+    def _print_board_table(title: str, rows: List[Tuple[int, str]], max_rows: int = 30) -> None:
+        if not rows:
+            return
+        print(f"\n{title}:")
+        print("-" * 70)
+        print(f"{'序号':<8} {'牌面':<20}")
+        print("-" * 70)
+        shown = rows[:max_rows]
+        for idx, board in shown:
+            print(f"{idx:<8} {board:<20}")
+        if len(rows) > max_rows:
+            print(f"... 其余 {len(rows) - max_rows} 个牌面未显示")
+        print("-" * 70)
 
 
 def _run(cmd: list, cwd: Path = None) -> bool:
@@ -876,6 +1101,33 @@ def main():
     upload_failures = 0
     upload_disabled_due_network = False
     tracker: Optional[PipelineStatusTracker] = None
+    summary = PipelineRunSummary()
+    summary.configure(
+        range_input=args.range,
+        repo_id=repo_id,
+        scenario=infer_scenario_from_range_path(range_file) if range_file else None,
+        range_file=range_file,
+        all_boards=all_boards,
+        planned_indices=indices,
+        batches=batches,
+        batch_size=batch_size,
+        export_format=args.export_format,
+        upload_format=args.upload_format,
+        upload_enabled=do_upload,
+        convert_only=args.convert_only,
+    )
+    atexit.register(summary.print_summary)
+
+    def _finish_pipeline(status: str, reason: str, **tracker_fields: Any) -> None:
+        summary.set_upload_state(
+            upload_enabled=do_upload,
+            upload_failures=upload_failures,
+            upload_disabled_due_network=upload_disabled_due_network,
+        )
+        summary.print_summary(reason)
+        if tracker:
+            tracker.finalize(status, **tracker_fields)
+
     if not args.no_status_file:
         status_file = _resolve_status_file(args.status_file)
         tracker = PipelineStatusTracker(status_file)
@@ -909,8 +1161,7 @@ def main():
             print("\n[Mode] Only process existing results and upload (no solver)")
             if _count_json() == 0 and _count_parquet() == 0:
                 print("[Info] results directory has no JSON or Parquet files")
-                if tracker:
-                    tracker.finalize("completed", message="no artifacts to process")
+                _finish_pipeline("completed", "正常结束", message="no artifacts to process")
                 sys.exit(0)
             ok, _ = _process_artifacts(
                 do_upload,
@@ -925,21 +1176,20 @@ def main():
                     f"本地 results 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
                     f"尝试使用命令 python upload.py --repo-id {repo_id} 进行手动上传"
                 )
-                if tracker:
-                    tracker.finalize(
-                        "completed_with_upload_failures",
-                        mode="convert_only",
-                        upload_failures=1,
-                        remaining_export_files=remaining_files,
-                    )
+                _finish_pipeline(
+                    "completed_with_upload_failures",
+                    "正常结束（上传失败）",
+                    mode="convert_only",
+                    upload_failures=1,
+                    remaining_export_files=remaining_files,
+                )
                 sys.exit(1)
-            print("\n[Completed]")
-            if tracker:
-                tracker.finalize("completed", mode="convert_only")
+            _finish_pipeline("completed", "正常结束", mode="convert_only")
             sys.exit(0)
 
         for i, batch in enumerate(batches, 1):
             expr = _compress_indices(batch)
+            summary.set_batch(i)
             if tracker:
                 tracker.update(
                     current_batch=i,
@@ -1000,6 +1250,11 @@ def main():
                         upload_failures += 1
                         do_upload = False
                         upload_disabled_due_network = True
+                        summary.set_upload_state(
+                            upload_enabled=False,
+                            upload_failures=upload_failures,
+                            upload_disabled_due_network=True,
+                        )
                         print("检测到当前网络环境可能存在问题，关闭上传，仅求解。")
                         print("[Upload] Files kept in results/; will retry one final upload after all solving is done")
                         if tracker:
@@ -1047,7 +1302,11 @@ def main():
                     f"尝试使用命令 python upload.py --repo-id {repo_id} 进行手动上传"
                 )
 
-        print("\n" + "=" * 60)
+        summary.set_upload_state(
+            upload_enabled=do_upload,
+            upload_failures=upload_failures,
+            upload_disabled_due_network=upload_disabled_due_network,
+        )
         if upload_failures > 0 or upload_disabled_due_network:
             remaining_files = _count_pending_result_files(args.export_format, args.upload_format)
             print(f"[Completed] Pipeline finished with {upload_failures} upload failure(s)")
@@ -1056,21 +1315,39 @@ def main():
                     f"  本地 results 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
                     f"尝试使用命令 python upload.py --repo-id {repo_id} 进行手动上传"
                 )
-            if tracker:
-                tracker.finalize(
-                    "completed_with_upload_failures",
-                    upload_failures=upload_failures,
-                    remaining_export_files=remaining_files,
-                )
+            _finish_pipeline(
+                "completed_with_upload_failures",
+                "正常结束（存在上传失败）",
+                upload_failures=upload_failures,
+                remaining_export_files=remaining_files,
+            )
         else:
             print("[Completed] Pipeline execution completed")
-            if tracker:
-                tracker.finalize("completed", upload_failures=0)
-        print("=" * 60)
+            _finish_pipeline("completed", "正常结束", upload_failures=0)
+    except KeyboardInterrupt:
+        summary.set_upload_state(
+            upload_enabled=do_upload,
+            upload_failures=upload_failures,
+            upload_disabled_due_network=upload_disabled_due_network,
+        )
+        _finish_pipeline("interrupted", "用户中断 (Ctrl+C)")
+        sys.exit(130)
     except Exception as e:
-        if tracker:
-            tracker.finalize("failed", error=str(e))
+        summary.set_upload_state(
+            upload_enabled=do_upload,
+            upload_failures=upload_failures,
+            upload_disabled_due_network=upload_disabled_due_network,
+        )
+        _finish_pipeline("failed", f"异常退出: {e}", error=str(e))
         raise
+    finally:
+        summary.set_upload_state(
+            upload_enabled=do_upload,
+            upload_failures=upload_failures,
+            upload_disabled_due_network=upload_disabled_due_network,
+        )
+        if not summary._printed:
+            _finish_pipeline("exited", "进程退出")
 
 
 if __name__ == "__main__":
