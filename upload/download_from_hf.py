@@ -14,30 +14,21 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 try:
     from huggingface_hub import HfApi, hf_hub_download
 except ImportError:
     print("pip install -U huggingface_hub")
     sys.exit(1)
 
+from check_missing import parse_repo_id
+
 SCRIPT_DIR = Path(__file__).parent.resolve()
 DEFAULT_REPO = "Tsumugii/gto-srp-100bb-v1"
 DEFAULT_CACHE = "cache"
-
-
-def parse_repo_id(repo_arg: str) -> str:
-    """从 URL 或 repo_id 解析出标准 repo_id"""
-    repo_arg = repo_arg.strip()
-    m = re.search(
-        r"huggingface\.co/datasets/([a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+)",
-        repo_arg,
-        re.IGNORECASE,
-    )
-    if m:
-        return m.group(1)
-    if "/" in repo_arg and " " not in repo_arg:
-        return repo_arg
-    raise ValueError(f"无法解析 repo: {repo_arg}")
 
 
 def board_to_filename(board: str) -> str:

@@ -20,6 +20,10 @@ import sys
 import time
 from pathlib import Path
 
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 2
 DEFAULT_ATTEMPT_TIMEOUT_SECONDS = 120
@@ -43,16 +47,14 @@ def dataset_url(repo_id: str) -> str:
 
 
 def resolve_dataset_repo_id(api: HfApi, repo_id: str) -> tuple[str, str | None]:
-    """Resolve repo_id to namespace/name. Bare names use the logged-in user."""
-    if "/" in repo_id:
-        return repo_id, None
-    try:
-        namespace = api.whoami()["name"]
-    except Exception as e:
-        print(f"Cannot resolve namespace for repo_id '{repo_id}': {e}")
-        print("Use user/dataset format or run: huggingface-cli login")
-        sys.exit(1)
-    return f"{namespace}/{repo_id}", namespace
+    """Resolve repo_id to namespace/name. Bare names use default namespace."""
+    from check_missing import default_hf_namespace, parse_repo_id
+
+    repo_id_input = repo_id.strip()
+    full_repo_id = parse_repo_id(repo_id_input)
+    if "/" not in repo_id_input and "huggingface.co" not in repo_id_input.casefold():
+        return full_repo_id, default_hf_namespace()
+    return full_repo_id, None
 
 
 def print_upload_plan(
@@ -67,7 +69,7 @@ def print_upload_plan(
     if auto_namespace:
         print(
             f"Repo id: {repo_id_input} -> {repo_id} "
-            f"(namespace from logged-in user '{auto_namespace}')"
+            f"(namespace: {auto_namespace})"
         )
     print(f"Target: {dataset_url(repo_id)}")
     print(f"HF_XET_HIGH_PERFORMANCE={os.environ.get('HF_XET_HIGH_PERFORMANCE', 'not set')}")

@@ -11,6 +11,7 @@
 """
 
 import argparse
+import os
 import random
 import re
 import subprocess
@@ -28,15 +29,25 @@ except ImportError:
 SCRIPT_DIR = Path(__file__).parent.resolve()
 CARDS_DIR = SCRIPT_DIR / "cards"
 CARDS_FILE = CARDS_DIR / "cards.txt"
+DEFAULT_HF_NAMESPACE = "Tsumugii"
 # =============================================
+
+
+def default_hf_namespace() -> str:
+    return os.environ.get("HF_DEFAULT_NAMESPACE", DEFAULT_HF_NAMESPACE).strip() or DEFAULT_HF_NAMESPACE
 
 
 def parse_repo_id(repo_arg: str) -> str:
     """
-    从 URL 或 repo_id 解析出标准 repo_id
-    例如: https://huggingface.co/datasets/Tsumugii/gto-srp-100bb-v1 -> Tsumugii/gto-srp-100bb-v1
+    从 URL、owner/repo 或仅 dataset 名解析出标准 repo_id。
+    例如:
+      https://huggingface.co/datasets/Tsumugii/gto-srp-100bb-v1 -> Tsumugii/gto-srp-100bb-v1
+      Tsumugii/gto-srp-100bb-v1 -> Tsumugii/gto-srp-100bb-v1
+      gto-srp-100bb-v1 -> Tsumugii/gto-srp-100bb-v1
     """
     repo_arg = repo_arg.strip()
+    if not repo_arg:
+        raise ValueError("repo 不能为空")
     # URL 格式
     m = re.search(
         r"huggingface\.co/datasets/([a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+)",
@@ -48,6 +59,9 @@ def parse_repo_id(repo_arg: str) -> str:
     # 已是 owner/repo 格式
     if "/" in repo_arg and " " not in repo_arg:
         return repo_arg
+    # 仅 dataset 名：补默认 namespace
+    if " " not in repo_arg:
+        return f"{default_hf_namespace()}/{repo_arg}"
     raise ValueError(f"无法解析 repo: {repo_arg}，请使用 URL 或 owner/repo 格式")
 
 

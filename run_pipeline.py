@@ -748,10 +748,14 @@ def _prompt_repo_id() -> tuple[str, Path]:
 
 
 def _normalize_repo_id(repo_id: str) -> str:
-    """支持从 URL 或 owner/repo 形式解析标准 repo_id。"""
-    from check_missing import parse_repo_id
+    """支持从 URL、owner/repo 或仅 dataset 名解析标准 repo_id。"""
+    from check_missing import default_hf_namespace, parse_repo_id
 
-    return parse_repo_id(repo_id)
+    original = repo_id.strip()
+    normalized = parse_repo_id(original)
+    if "/" not in original and "huggingface.co" not in original.casefold():
+        print(f"[HF] Repo id: {original} -> {normalized} (namespace: {default_hf_namespace()})")
+    return normalized
 
 
 def _filter_requested_indices_by_hf(
