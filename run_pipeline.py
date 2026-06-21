@@ -756,7 +756,21 @@ def _unuploaded_result_stems() -> list[str]:
     return sorted(stems)
 
 
-def _warn_unuploaded_results_range_mismatch(current_oop: str, current_ip: str) -> None:
+def _current_dataset_label(repo_id: Optional[str], range_file: Optional[Path]) -> str:
+    if repo_id:
+        return repo_id
+    if range_file is not None:
+        return range_file.stem
+    return "未知"
+
+
+def _warn_unuploaded_results_range_mismatch(
+    current_oop: str,
+    current_ip: str,
+    *,
+    repo_id: Optional[str] = None,
+    range_file: Optional[Path] = None,
+) -> None:
     """检测 results/ 中未上传结果是否属于与当前任务不同的 range。"""
     stems = _unuploaded_result_stems()
     if not stems:
@@ -802,16 +816,20 @@ def _warn_unuploaded_results_range_mismatch(current_oop: str, current_ip: str) -
 
     if not mismatches:
         if matched_count == len(stems):
+            dataset_label = _current_dataset_label(repo_id, range_file)
             print(
-                f"[Range Check] results/ 中 {matched_count} 个未上传结果与当前 range 全部一致"
+                f"[Range Check] results/ 中 {matched_count} 个未上传结果与当前 range 全部一致，"
+                f"对应 dataset: {dataset_label}"
             )
         return
 
     total = sum(len(v) for v in mismatches.values())
+    current_dataset = _current_dataset_label(repo_id, range_file)
     print("\n" + "=" * 60)
     print(f"[Range Mismatch] results/ 中有 {total} 个未上传结果与当前 range 不一致")
     print("=" * 60)
-    print(f"当前 range 文件对应 OOP/IP 与这些结果求解时使用的 range 不同。")
+    print(f"当前目标任务 dataset: {current_dataset}")
+    print("当前 range 文件对应 OOP/IP 与这些结果求解时使用的 range 不同。")
     print("请勿将它们上传到当前 dataset；请先手动上传到各自对应的 dataset：\n")
 
     for dataset_name, boards in sorted(mismatches.items()):
@@ -1251,7 +1269,12 @@ def main():
             print(f"[Range] File: {range_file.name}")
             print(f"  OOP: {current_oop[:80]}{'...' if len(current_oop) > 80 else ''}")
             print(f"  IP:  {current_ip[:80]}{'...' if len(current_ip) > 80 else ''}")
-            _warn_unuploaded_results_range_mismatch(current_oop, current_ip)
+            _warn_unuploaded_results_range_mismatch(
+                current_oop,
+                current_ip,
+                repo_id=repo_id,
+                range_file=range_file,
+            )
         except Exception as e:
             print(f"[错误] 读取 range 文件失败: {e}")
             sys.exit(1)
