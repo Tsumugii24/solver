@@ -4,6 +4,7 @@
 .DS_Store
 .env
 results/
+job-ranges/
 cache/
 build/
 install/

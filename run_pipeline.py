@@ -21,12 +21,13 @@
   HF_REPO_ID: 目标 Hugging Face dataset repo_id；不传则启动时交互输入
   PIPELINE_STATUS_FILE: 覆盖默认状态文件路径（供外部监控程序读取）
 
-  dataset 名（repo_id 最后一段）应对应 ranges 下的 range 文件名（不含路径）：
+  dataset 名（repo_id 最后一段）默认对应 ranges 下的 range 文件名（不含路径）：
   例如 dataset 为 sia-12-sod-30 则匹配 ranges/sia-sod/sia-12-sod-30.txt，
   soa-50-sid-30 则匹配 ranges/soa-sid/soa-50-sid-30.txt，
   3ia-16.5-3od-13 则匹配 ranges/3ia-3od/3ia-16.5-3od-13.txt，
   sia-16-sod-21.5-open2.5 则匹配 ranges/sia-sod-open2.5/ 或文件名含 open2.5；
-  根目录遗留的 sia-100bb.txt 仍可匹配。
+  根目录遗留的 sia-100bb.txt 仍可匹配。若同时传入 --scenario 与 --range-file，
+  则优先使用显式指定的 ranges/<scenario>/<range-file>，repo_id 仅作为上传目标。
 
 外部监控:
   运行时会写入 JSON 状态文件（默认 ~/run/solver_running_status.json），包含
@@ -85,6 +86,13 @@ def _resolve_status_file(cli_path: Optional[str]) -> Path:
     if env_path:
         return Path(env_path).expanduser().resolve()
     return DEFAULT_PIPELINE_STATUS_FILE.resolve()
+
+
+def _resolve_cli_range_path(raw_path: str) -> Path:
+    path = Path(raw_path).expanduser()
+    if not path.is_absolute():
+        path = SCRIPT_DIR / path
+    return path.resolve()
 
 
 def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
@@ -1093,13 +1101,31 @@ def main():
         type=str,
         default=None,
         choices=list(SCENARIO_SUBDIRS),
-        help="未提供 --repo-id 时与 --range-file 联用：ranges/<scenario>/ 下的场景子目录",
+        help="与 --range-file 联用：显式指定 ranges/<scenario>/ 下的场景子目录",
     )
     parser.add_argument(
         "--range-file",
         type=str,
         default=None,
-        help="未提供 --repo-id 时：场景目录内文件名，如 sia-12-sod-30.txt（与 --scenario 搭配）",
+        help="场景目录内文件名，如 sia-12-sod-30.txt（与 --scenario 搭配；优先于 repo_id 自动匹配）",
+    )
+    parser.add_argument(
+        "--range-path",
+        type=str,
+        default=None,
+        help="任意 range 配置文件路径；优先于 --scenario/--range-file 与 repo_id 自动匹配",
+    )
+    parser.add_argument(
+        "--oop-range",
+        type=str,
+        default=None,
+        help="直接传入 OOP range；必须与 --ip-range 同时使用",
+    )
+    parser.add_argument(
+        "--ip-range",
+        type=str,
+        default=None,
+        help="直接传入 IP range；必须与 --oop-range 同时使用",
     )
     parser.add_argument("--dry-run", action="store_true",
                         help="仅预览，不执行")
@@ -1211,6 +1237,36 @@ def main():
 
     repo_id = args.repo_id.strip() if args.repo_id else None
     range_file: Optional[Path] = None
+    inline_oop_range = args.oop_range.strip() if args.oop_range else None
+    inline_ip_range = args.ip_range.strip() if args.ip_range else None
+    current_oop: Optional[str] = None
+    current_ip: Optional[str] = None
+
+    if bool(inline_oop_range) != bool(inline_ip_range):
+        print("[错误] --oop-range 与 --ip-range 必须同时提供")
+        sys.exit(1)
+
+    if inline_oop_range and inline_ip_range:
+        current_oop, current_ip = inline_oop_range, inline_ip_range
+    elif args.range_path:
+        range_file = _resolve_cli_range_path(args.range_path)
+        if not range_file.is_file():
+            print(f"[错误] 找不到显式指定的 range 文件: {range_file}")
+            sys.exit(1)
+
+    if range_file is None and current_oop is None and args.scenario and args.range_file:
+        cand = RANGES_DIR / args.scenario / args.range_file
+        if cand.is_file():
+            range_file = cand.resolve()
+        else:
+            alt = RANGES_DIR / args.range_file
+            if alt.is_file():
+                range_file = alt.resolve()
+            else:
+                print(f"[错误] 找不到显式指定的 range 文件: {cand}")
+                print(f"  亦未在 ranges/ 根目录找到: {alt}")
+                print(f"  ranges/ 下可用: {_list_range_txt_for_errors()}")
+                sys.exit(1)
 
     if repo_id:
         try:
@@ -1218,8 +1274,8 @@ def main():
         except Exception as e:
             print(f"[Error] Invalid repo_id: {e}")
             sys.exit(1)
-        range_file = _find_range_file(repo_id)
-        if not range_file:
+        range_file = range_file or (None if current_oop is not None else _find_range_file(repo_id))
+        if not range_file and current_oop is None:
             expected = _repo_id_to_range_filename(repo_id)
             print(f"[错误] 未找到 repo_id '{repo_id}' 对应的 range 文件: {expected}")
             print(f"  （已搜索 ranges/ 根目录与所有场景子目录）")
@@ -1241,25 +1297,10 @@ def main():
             print("[Error] Unable to upload: Please login to HF or set HF_TOKEN")
             sys.exit(1)
 
-    # --no-upload 且未提供 --repo-id：用 --scenario + --range-file 指向 ranges/<scenario>/
-    if range_file is None and args.scenario and args.range_file:
-        cand = RANGES_DIR / args.scenario / args.range_file
-        if cand.is_file():
-            range_file = cand.resolve()
-        else:
-            alt = RANGES_DIR / args.range_file
-            if alt.is_file():
-                range_file = alt.resolve()
-            else:
-                print(f"[错误] 找不到 range 文件: {cand}")
-                print(f"  亦未在 ranges/ 根目录找到: {alt}")
-                print(f"  ranges/ 下可用: {_list_range_txt_for_errors()}")
-                sys.exit(1)
-
     if not args.convert_only:
-        if range_file is None or not range_file.is_file():
+        if current_oop is None and (range_file is None or not range_file.is_file()):
             print("[错误] 运行 solver 需要 range：请使用 --repo-id（HF dataset 名应对应 ranges 下某 .txt 基名），")
-            print("  或同时指定 --scenario 与 --range-file（常用于仅本地求解、不上传）。")
+            print("  或指定 --range-path / --oop-range + --ip-range / --scenario + --range-file。")
             print(f"  ranges/ 下可用: {_list_range_txt_for_errors()}")
             sys.exit(1)
 
@@ -1278,6 +1319,21 @@ def main():
         except Exception as e:
             print(f"[错误] 读取 range 文件失败: {e}")
             sys.exit(1)
+    elif current_oop and current_ip:
+        print("[Range] Source: command line OOP/IP range")
+        print(f"  OOP: {current_oop[:80]}{'...' if len(current_oop) > 80 else ''}")
+        print(f"  IP:  {current_ip[:80]}{'...' if len(current_ip) > 80 else ''}")
+        _warn_unuploaded_results_range_mismatch(
+            current_oop,
+            current_ip,
+            repo_id=repo_id,
+            range_file=None,
+        )
+
+    selected_scenario = args.scenario or (infer_scenario_from_range_path(range_file) if range_file else None)
+    if not args.convert_only and not selected_scenario:
+        print("[错误] 使用 --oop-range/--ip-range 时必须同时指定 --scenario")
+        sys.exit(1)
 
     if repo_id and not args.convert_only:
         try:
@@ -1332,7 +1388,7 @@ def main():
     summary.configure(
         range_input=args.range,
         repo_id=repo_id,
-        scenario=infer_scenario_from_range_path(range_file) if range_file else None,
+        scenario=selected_scenario,
         range_file=range_file,
         all_boards=all_boards,
         planned_indices=indices,
@@ -1358,7 +1414,6 @@ def main():
     if not args.no_status_file:
         status_file = _resolve_status_file(args.status_file)
         tracker = PipelineStatusTracker(status_file)
-        scenario = infer_scenario_from_range_path(range_file) if range_file else None
         try:
             rel_range = str(range_file.resolve().relative_to(SCRIPT_DIR)) if range_file else None
         except ValueError:
@@ -1367,8 +1422,9 @@ def main():
             status="running",
             repo_id=repo_id,
             dataset_name=_dataset_name_from_repo_id(repo_id) if repo_id else None,
-            scenario=scenario,
+            scenario=selected_scenario,
             range_file=rel_range,
+            range_source="inline" if current_oop and current_ip and range_file is None else "file",
             upload_enabled=do_upload,
             convert_only=args.convert_only,
             no_upload=args.no_upload,
@@ -1431,13 +1487,16 @@ def main():
                 sys.executable, str(SCRIPT_DIR / "auto_run_solver.py"),
                 expr,
                 "--file", args.file,
-                "--scenario", infer_scenario_from_range_path(range_file),
-                "--range-file", range_file.name,
+                "--scenario", selected_scenario,
                 "--thread-num", str(args.thread_num),
                 "--use-isomorphism", str(args.use_isomorphism),
                 "--max-iteration", str(args.max_iteration),
                 "--dump-format", args.export_format,
             ]
+            if range_file is not None:
+                solver_cmd.extend(["--range-path", str(range_file)])
+            else:
+                solver_cmd.extend(["--oop-range", current_oop or "", "--ip-range", current_ip or ""])
             if args.stall_timeout is not None:
                 solver_cmd.extend(["--stall-timeout", str(args.stall_timeout)])
             if args.no_output_timeout is not None:

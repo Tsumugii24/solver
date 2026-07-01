@@ -298,6 +298,19 @@ def list_range_files(scenario: str) -> List[str]:
     if not scenario_dir.exists():
         return []
     return sorted(f.name for f in scenario_dir.glob("*.txt"))
+
+
+def resolve_range_path(raw_path: str) -> Path:
+    """Resolve a range path passed from orchestration code.
+
+    Absolute paths and ~/ paths are used directly. Relative paths are treated as
+    relative to the solver script directory so tmux cwd differences do not
+    change which range file is loaded.
+    """
+    path = Path(raw_path).expanduser()
+    if not path.is_absolute():
+        path = SCRIPT_DIR / path
+    return path.resolve()
 # =============================================
 
 
@@ -1031,8 +1044,26 @@ def main():
     parser.add_argument(
         "--range-file",
         type=str,
-        required=True,
+        default=None,
         help="场景目录下的 range 配置文件名（如 sia-12-sod-30.txt）",
+    )
+    parser.add_argument(
+        "--range-path",
+        type=str,
+        default=None,
+        help="任意 range 配置文件路径；优先于 --range-file",
+    )
+    parser.add_argument(
+        "--oop-range",
+        type=str,
+        default=None,
+        help="直接传入 OOP range；必须与 --ip-range 同时使用",
+    )
+    parser.add_argument(
+        "--ip-range",
+        type=str,
+        default=None,
+        help="直接传入 IP range；必须与 --oop-range 同时使用",
     )
     
     args = parser.parse_args()
@@ -1041,6 +1072,12 @@ def main():
     if not args.range:
         parser.print_help()
         print("\n[错误] 请指定序号范围，如: 1-10 或 1-10,15,20-30 或 all")
+        sys.exit(1)
+    if bool(args.oop_range) != bool(args.ip_range):
+        print("[错误] --oop-range 与 --ip-range 必须同时提供")
+        sys.exit(1)
+    if not args.range_path and not args.range_file and not (args.oop_range and args.ip_range):
+        print("[错误] 请提供 --range-path、--range-file 或 --oop-range/--ip-range")
         sys.exit(1)
     
     # 检查 solver
@@ -1114,13 +1151,26 @@ def main():
     
     # 根据 scenario 选择配置模板和 range 目录
     config_template = SCENARIO_CONFIG[args.scenario]
-    range_path = RANGES_DIR / args.scenario / args.range_file
+    range_path = resolve_range_path(args.range_path) if args.range_path else (
+        RANGES_DIR / args.scenario / args.range_file if args.range_file else None
+    )
     available_files = list_range_files(args.scenario)
 
     try:
-        solve_range_oop, solve_range_ip = load_ranges_from_file(range_path)
-        print(f"[场景] {args.scenario}")
-        print(f"[Range] 使用 range 文件: {range_path.relative_to(SCRIPT_DIR)}")
+        if args.oop_range and args.ip_range:
+            solve_range_oop, solve_range_ip = args.oop_range.strip(), args.ip_range.strip()
+            print(f"[场景] {args.scenario}")
+            print("[Range] 使用命令参数 OOP/IP range")
+        elif range_path is not None:
+            solve_range_oop, solve_range_ip = load_ranges_from_file(range_path)
+            print(f"[场景] {args.scenario}")
+            try:
+                display_path = range_path.relative_to(SCRIPT_DIR)
+            except ValueError:
+                display_path = range_path
+            print(f"[Range] 使用 range 文件: {display_path}")
+        else:
+            raise ValueError("missing range source")
     except Exception as e:
         print(f"[错误] 加载 range 文件失败: {e}")
         if available_files:
