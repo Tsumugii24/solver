@@ -26,7 +26,7 @@ if str(_ROOT) not in sys.path:
 
 MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 2
-DEFAULT_ATTEMPT_TIMEOUT_SECONDS = 120
+DEFAULT_ATTEMPT_TIMEOUT_SECONDS = 1800  # 30 minutes; run_pipeline uses its own 120s default
 FILE_PATTERNS = {
     "json": "*.json",
     "parquet": "*.parquet",
@@ -132,7 +132,7 @@ def main() -> None:
         "--attempt-timeout",
         type=int,
         default=int(os.environ.get("HF_UPLOAD_ATTEMPT_TIMEOUT", DEFAULT_ATTEMPT_TIMEOUT_SECONDS)),
-        help="Seconds before one upload attempt is treated as stuck (default: 120)",
+        help="Seconds before one upload attempt is treated as stuck (default: 1800, i.e. 30min)",
     )
     parser.add_argument(
         "--max-retries",
