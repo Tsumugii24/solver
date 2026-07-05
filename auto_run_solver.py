@@ -672,6 +672,7 @@ def _pending_iteration_stage(watchdog: Dict[str, object]) -> Optional[str]:
 
 def run_solver_with_retry(
     config_file: Path,
+    results_dir: Optional[Path] = None,
     max_retries: int = MAX_RETRIES,
     mode: str = "holdem",
     use_isomorphism: int = 1,
@@ -692,6 +693,7 @@ def run_solver_with_retry(
     """
     retries = 0
     last_error = ""
+    effective_results_dir = results_dir or RESULTS_DIR
 
     while retries <= max_retries:
         if retries > 0:
@@ -705,7 +707,7 @@ def run_solver_with_retry(
             cmd = [SOLVER_EXE, "-i", config_file_abs, "-r", RESOURCE_DIR, "-m", mode]
 
             # 确保结果目录存在
-            RESULTS_DIR.mkdir(exist_ok=True)
+            effective_results_dir.mkdir(parents=True, exist_ok=True)
 
             process = subprocess.Popen(
                 cmd,
@@ -713,7 +715,7 @@ def run_solver_with_retry(
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                cwd=str(RESULTS_DIR),
+                cwd=str(effective_results_dir),
             )
 
             output_queue = _start_output_reader(process)
@@ -1029,6 +1031,12 @@ def main():
         help=f"导出格式（默认: {DEFAULT_DUMP_FORMAT}）"
     )
     parser.add_argument(
+        "--result-path",
+        type=str,
+        default=None,
+        help="结果输出目录（默认: solver/results；相对路径按 solver 根目录解析）",
+    )
+    parser.add_argument(
         "--estimate-memory",
         action="store_true",
         help="在 build_tree 后执行 estimate_memory 并输出内存估算（默认关闭）",
@@ -1067,6 +1075,13 @@ def main():
     )
     
     args = parser.parse_args()
+    global RESULTS_DIR
+    if args.result_path:
+        result_path = Path(args.result_path).expanduser()
+        if not result_path.is_absolute():
+            result_path = SCRIPT_DIR / result_path
+        RESULTS_DIR = result_path.resolve()
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     
     # 参数检查
     if not args.range:
@@ -1138,6 +1153,7 @@ def main():
         f"max_iteration={args.max_iteration}, dump_format={args.dump_format}, "
         f"estimate_memory={1 if args.estimate_memory else 0}"
     )
+    print(f"[结果目录] {RESULTS_DIR}")
     print(f"[容错] 最大重试次数: {args.max_retries}")
     
     # 显示牌面列表
@@ -1221,6 +1237,7 @@ def main():
             # 运行求解器
             success, elapsed, error, retries = run_solver_with_retry(
                 config_file=config_file,
+                results_dir=RESULTS_DIR,
                 max_retries=args.max_retries,
                 use_isomorphism=args.use_isomorphism,
                 thread_num=args.thread_num,

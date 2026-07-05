@@ -2,8 +2,8 @@
 """
 自动化流水线：Solver → JSON/Parquet → Hugging Face
 
-每个 batch 求解完成后，检查 results/ 目录下文件数量。达到 batch_size 阈值时
-尝试上传一次（默认 120 秒超时）。若上传失败或超时，文件留在 results/ 目录，
+每个 batch 求解完成后，检查结果目录下文件数量。达到 batch_size 阈值时
+尝试上传一次（默认按 120 秒 / 5 文件线性缩放）。若上传失败或超时，文件留在结果目录，
 本轮关闭中途上传，仅继续求解；全部求解完成后再统一尝试上传一次。
 
 用法:
@@ -42,6 +42,7 @@ import argparse
 import atexit
 import json
 import os
+import shlex
 import socket
 import subprocess
 import sys
@@ -61,6 +62,7 @@ SUPPORTED_UPLOAD_FORMATS = ["json", "parquet"]
 DEFAULT_EXPORT_FORMAT = "json" if sys.platform == "win32" else "parquet"
 DEFAULT_UPLOAD_FORMAT = "parquet"
 DEFAULT_UPLOAD_ATTEMPT_TIMEOUT_SECONDS = 120
+UPLOAD_TIMEOUT_BASE_FILE_COUNT = 5
 def _default_pipeline_status_file() -> Path:
     """固定默认路径（用户家目录下），与 solver 当前工作目录无关，且无需 root 权限。"""
     return Path.home() / "run" / "solver_running_status.json"
@@ -89,6 +91,15 @@ def _resolve_status_file(cli_path: Optional[str]) -> Path:
 
 
 def _resolve_cli_range_path(raw_path: str) -> Path:
+    path = Path(raw_path).expanduser()
+    if not path.is_absolute():
+        path = SCRIPT_DIR / path
+    return path.resolve()
+
+
+def _resolve_result_dir(raw_path: Optional[str]) -> Path:
+    if not raw_path:
+        return RESULTS_DIR.resolve()
     path = Path(raw_path).expanduser()
     if not path.is_absolute():
         path = SCRIPT_DIR / path
@@ -168,6 +179,7 @@ class PipelineRunSummary:
         self.batch_size = 5
         self.export_format = DEFAULT_EXPORT_FORMAT
         self.upload_format = DEFAULT_UPLOAD_FORMAT
+        self.result_dir = RESULTS_DIR
         self.upload_enabled = False
         self.upload_failures = 0
         self.upload_disabled_due_network = False
@@ -186,6 +198,7 @@ class PipelineRunSummary:
         batch_size: int,
         export_format: str,
         upload_format: str,
+        result_dir: Path,
         upload_enabled: bool,
         convert_only: bool = False,
     ) -> None:
@@ -204,6 +217,7 @@ class PipelineRunSummary:
         self.batch_size = batch_size
         self.export_format = export_format
         self.upload_format = upload_format
+        self.result_dir = result_dir
         self.upload_enabled = upload_enabled
         self.convert_only = convert_only
         self.command = " ".join(sys.argv)
@@ -298,7 +312,7 @@ class PipelineRunSummary:
             if idx not in {i for i, _ in solved_local}
         ]
         pending_count = _count_pending_result_files(self.export_format, self.upload_format)
-        print(f"\n本地 results: {pending_count} 个待处理文件")
+        print(f"\n本地 results ({self.result_dir}): {pending_count} 个待处理文件")
         if solved_local:
             print(f"已有本地结果: {len(solved_local)} 个牌面")
             self._print_board_table("已有本地结果牌面", solved_local)
@@ -321,7 +335,7 @@ class PipelineRunSummary:
             print(f"  上传失败次数: {self.upload_failures}")
         if pending_count > 0 and self.repo_id:
             print(
-                f"  手动上传: python upload.py --repo-id {self.repo_id}"
+                f"  手动上传: {_manual_upload_command(self.repo_id, self.upload_format)}"
             )
 
         print("\n" + "=" * 70)
@@ -520,6 +534,19 @@ def _count_pending_result_files(export_format: str, upload_format: str) -> int:
     return count
 
 
+def _scaled_upload_attempt_timeout(timeout_seconds: int, file_count: int) -> int:
+    base_timeout = max(1, int(timeout_seconds))
+    normalized_count = max(1, int(file_count))
+    return max(1, (base_timeout * normalized_count + UPLOAD_TIMEOUT_BASE_FILE_COUNT - 1) // UPLOAD_TIMEOUT_BASE_FILE_COUNT)
+
+
+def _manual_upload_command(repo_id: str, upload_format: str = DEFAULT_UPLOAD_FORMAT) -> str:
+    return (
+        f"python upload.py {shlex.quote(str(RESULTS_DIR))} "
+        f"--repo-id {shlex.quote(repo_id)} --file-format {shlex.quote(upload_format)}"
+    )
+
+
 def _delete_json_in_dir(directory: Path) -> int:
     if not directory.is_dir():
         return 0
@@ -578,6 +605,11 @@ def _process_artifacts_in_dir(
         if not repo_id:
             print("[Error] Missing Hugging Face repo_id")
             return False, 1
+        effective_timeout = _scaled_upload_attempt_timeout(upload_attempt_timeout, ready_count)
+        print(
+            f"[Upload] Attempt timeout: {effective_timeout}s "
+            f"({ready_count} {upload_format} files; base {upload_attempt_timeout}s/{UPLOAD_TIMEOUT_BASE_FILE_COUNT} files)"
+        )
         upload_code = _run_code([
             sys.executable,
             str(UPLOAD_DIR / "upload_to_hf.py"),
@@ -587,7 +619,7 @@ def _process_artifacts_in_dir(
             "--file-format",
             upload_format,
             "--attempt-timeout",
-            str(upload_attempt_timeout),
+            str(effective_timeout),
             "--max-retries",
             "1",
         ])
@@ -779,7 +811,7 @@ def _warn_unuploaded_results_range_mismatch(
     repo_id: Optional[str] = None,
     range_file: Optional[Path] = None,
 ) -> None:
-    """检测 results/ 中未上传结果是否属于与当前任务不同的 range。"""
+    """检测当前结果目录中未上传结果是否属于与当前任务不同的 range。"""
     stems = _unuploaded_result_stems()
     if not stems:
         return
@@ -795,7 +827,7 @@ def _warn_unuploaded_results_range_mismatch(
         config_path = CARDS_DIR / f"{stem}.txt"
         if not config_path.is_file():
             print(
-                f"[警告] results/{stem}.parquet 无对应 cards/{stem}.txt，"
+                f"[警告] {RESULTS_DIR}/{stem}.parquet 无对应 cards/{stem}.txt，"
                 "无法校验 range，请确认是否应手动上传"
             )
             continue
@@ -826,7 +858,7 @@ def _warn_unuploaded_results_range_mismatch(
         if matched_count == len(stems):
             dataset_label = _current_dataset_label(repo_id, range_file)
             print(
-                f"[Range Check] results/ 中 {matched_count} 个未上传结果与当前 range 全部一致，"
+                f"[Range Check] {RESULTS_DIR} 中 {matched_count} 个未上传结果与当前 range 全部一致，"
                 f"对应 dataset: {dataset_label}"
             )
         return
@@ -834,7 +866,7 @@ def _warn_unuploaded_results_range_mismatch(
     total = sum(len(v) for v in mismatches.values())
     current_dataset = _current_dataset_label(repo_id, range_file)
     print("\n" + "=" * 60)
-    print(f"[Range Mismatch] results/ 中有 {total} 个未上传结果与当前 range 不一致")
+    print(f"[Range Mismatch] {RESULTS_DIR} 中有 {total} 个未上传结果与当前 range 不一致")
     print("=" * 60)
     print(f"当前目标任务 dataset: {current_dataset}")
     print("当前 range 文件对应 OOP/IP 与这些结果求解时使用的 range 不同。")
@@ -847,7 +879,7 @@ def _warn_unuploaded_results_range_mismatch(
         print(f"  牌面 ({len(boards)}): {preview}{suffix}")
         if dataset_name != "未知 dataset":
             repo_hint = parse_repo_id(dataset_name)
-            print(f"  手动上传: python upload.py --repo-id {repo_hint}")
+            print(f"  手动上传: {_manual_upload_command(repo_hint)}")
         else:
             print(
                 f"  手动上传: 未在 ranges/ 找到匹配 range，"
@@ -908,7 +940,7 @@ def _normalize_repo_id(repo_id: str) -> str:
 
 
 def _local_result_board_keys() -> Set[str]:
-    """results/ 下已有导出文件的牌面键（大小写不敏感）。"""
+    """当前结果目录下已有导出文件的牌面键（大小写不敏感）。"""
     keys: Set[str] = set()
     if not RESULTS_DIR.is_dir():
         return keys
@@ -1171,7 +1203,13 @@ def main():
         "--upload-attempt-timeout",
         type=int,
         default=int(os.environ.get("HF_UPLOAD_ATTEMPT_TIMEOUT", DEFAULT_UPLOAD_ATTEMPT_TIMEOUT_SECONDS)),
-        help="单次 HF 上传尝试超时秒数，超时后关闭中途上传，仅求解，最后统一再试一次（默认: 120，可用 HF_UPLOAD_ATTEMPT_TIMEOUT 覆盖）",
+        help="HF 上传超时基准秒数，按待上传文件数相对 5 个文件线性缩放（默认: 120，可用 HF_UPLOAD_ATTEMPT_TIMEOUT 覆盖）",
+    )
+    parser.add_argument(
+        "--result-path",
+        type=str,
+        default=None,
+        help="结果输出目录（默认: solver/results；相对路径按 solver 根目录解析）",
     )
     parser.add_argument(
         "--status-file",
@@ -1190,6 +1228,10 @@ def main():
         if args.upload_format == "json" and args.export_format != "json":
             print("[Error] --upload-format json requires --export-format json")
             sys.exit(1)
+
+    global RESULTS_DIR
+    RESULTS_DIR = _resolve_result_dir(args.result_path)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     try:
         all_boards = _read_all_boards(args.file)
@@ -1218,7 +1260,13 @@ def main():
     print(f"Requested Range: {args.range} ({len(indices)} boards before HF/local skip)")
     print(f"Export Format: {args.export_format}")
     print(f"Upload Format: {args.upload_format}")
-    print(f"Upload Attempt Timeout: {args.upload_attempt_timeout}s")
+    per_file_timeout = _scaled_upload_attempt_timeout(args.upload_attempt_timeout, 1)
+    current_batch_timeout = _scaled_upload_attempt_timeout(args.upload_attempt_timeout, batch_size)
+    print(
+        f"Upload Attempt Timeout: {per_file_timeout}s/file "
+        f"(base {args.upload_attempt_timeout}s/{UPLOAD_TIMEOUT_BASE_FILE_COUNT} files; "
+        f"{current_batch_timeout}s for batch size {batch_size})"
+    )
     print(f"Estimate Memory: {'enabled' if args.estimate_memory else 'disabled'}")
     print(f"Trigger Condition: When export artifacts count >= {batch_size}, move to background for processing and uploading")
     if sys.platform == "win32" and args.export_format == "json" and args.upload_format == "parquet":
@@ -1383,6 +1431,8 @@ def main():
     do_upload = not args.no_upload
     upload_failures = 0
     upload_disabled_due_network = False
+    completed_indices: List[int] = []
+    failed_indices: List[int] = []
     tracker: Optional[PipelineStatusTracker] = None
     summary = PipelineRunSummary()
     summary.configure(
@@ -1396,6 +1446,7 @@ def main():
         batch_size=batch_size,
         export_format=args.export_format,
         upload_format=args.upload_format,
+        result_dir=RESULTS_DIR,
         upload_enabled=do_upload,
         convert_only=args.convert_only,
     )
@@ -1429,10 +1480,16 @@ def main():
             convert_only=args.convert_only,
             no_upload=args.no_upload,
             total_tasks=len(indices),
+            assigned_indices=indices,
+            completed_indices=completed_indices,
+            failed_indices=failed_indices,
+            completed_count=0,
+            failed_count=0,
             total_batches=len(batches),
             current_batch=0,
             export_format=args.export_format,
             upload_format=args.upload_format,
+            result_path=str(RESULTS_DIR),
             cards_file=args.file,
             batch_size=batch_size,
             command=" ".join(sys.argv),
@@ -1456,8 +1513,8 @@ def main():
                 remaining_files = _count_pending_result_files(args.export_format, args.upload_format)
                 print("[Completed] Final upload failed")
                 print(
-                    f"本地 results 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
-                    f"尝试使用命令 python upload.py --repo-id {repo_id} 进行手动上传"
+                    f"本地 {RESULTS_DIR} 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
+                    f"尝试使用命令 {_manual_upload_command(repo_id, args.upload_format)} 进行手动上传"
                 )
                 _finish_pipeline(
                     "completed_with_upload_failures",
@@ -1492,6 +1549,7 @@ def main():
                 "--use-isomorphism", str(args.use_isomorphism),
                 "--max-iteration", str(args.max_iteration),
                 "--dump-format", args.export_format,
+                "--result-path", str(RESULTS_DIR),
             ]
             if range_file is not None:
                 solver_cmd.extend(["--range-path", str(range_file)])
@@ -1503,17 +1561,35 @@ def main():
                 solver_cmd.extend(["--no-output-timeout", str(args.no_output_timeout)])
             if args.estimate_memory:
                 solver_cmd.append("--estimate-memory")
-            if not _run(solver_cmd):
+            batch_success = _run(solver_cmd)
+            if batch_success:
+                completed_indices.extend(batch)
+                if tracker:
+                    tracker.update(
+                        completed_indices=completed_indices,
+                        failed_indices=failed_indices,
+                        completed_count=len(completed_indices),
+                        failed_count=len(failed_indices),
+                        last_solver_success=True,
+                    )
+            else:
+                failed_indices.extend(batch)
                 print(f"[Failed] Solver batch {i} not fully successful, continue to next batch")
                 if tracker:
-                    tracker.update(last_solver_success=False)
+                    tracker.update(
+                        completed_indices=completed_indices,
+                        failed_indices=failed_indices,
+                        completed_count=len(completed_indices),
+                        failed_count=len(failed_indices),
+                        last_solver_success=False,
+                    )
 
             export_count = _count_export_files(args.export_format)
             if export_count >= batch_size:
                 json_count = _count_json()
                 parquet_count = _count_parquet()
                 print(
-                    f"\n[Upload] {export_count} files in results/ "
+                    f"\n[Upload] {export_count} files in {RESULTS_DIR} "
                     f"(JSON={json_count}, Parquet={parquet_count}, threshold={batch_size})"
                 )
                 if tracker:
@@ -1542,7 +1618,7 @@ def main():
                             upload_disabled_due_network=True,
                         )
                         print("检测到当前网络环境可能存在问题，关闭上传，仅求解。")
-                        print("[Upload] Files kept in results/; will retry one final upload after all solving is done")
+                        print(f"[Upload] Files kept in {RESULTS_DIR}; will retry one final upload after all solving is done")
                         if tracker:
                             tracker.update(
                                 phase="solving",
@@ -1552,7 +1628,7 @@ def main():
                                 last_upload_exit_code=upload_code,
                             )
                 else:
-                    print("[Upload] 当前上传已关闭，仅求解；文件保留在 results/，等待最终统一上传")
+                    print(f"[Upload] 当前上传已关闭，仅求解；文件保留在 {RESULTS_DIR}，等待最终统一上传")
                     if tracker:
                         tracker.update(phase="solving")
 
@@ -1560,7 +1636,7 @@ def main():
         if remaining > 0:
             json_count = _count_json()
             parquet_count = _count_parquet()
-            print(f"\n[Cleanup] {remaining} files remaining in results/ "
+            print(f"\n[Cleanup] {remaining} files remaining in {RESULTS_DIR} "
                   f"(JSON={json_count}, Parquet={parquet_count})")
             if tracker:
                 tracker.update(phase="cleanup", pending_export_count=remaining)
@@ -1584,8 +1660,8 @@ def main():
                 remaining_files = _count_pending_result_files(args.export_format, args.upload_format)
                 print(f"[Final Upload] 最终统一上传失败 (exit code: {upload_code})")
                 print(
-                    f"本地 results 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
-                    f"尝试使用命令 python upload.py --repo-id {repo_id} 进行手动上传"
+                    f"本地 {RESULTS_DIR} 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
+                    f"尝试使用命令 {_manual_upload_command(repo_id, args.upload_format)} 进行手动上传"
                 )
 
         summary.set_upload_state(
@@ -1598,8 +1674,8 @@ def main():
             print(f"[Completed] Pipeline finished with {upload_failures} upload failure(s)")
             if remaining_files > 0:
                 print(
-                    f"  本地 results 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
-                    f"尝试使用命令 python upload.py --repo-id {repo_id} 进行手动上传"
+                    f"  本地 {RESULTS_DIR} 下有 {remaining_files} 个求解结果，请检查当前网络环境后，"
+                    f"尝试使用命令 {_manual_upload_command(repo_id, args.upload_format)} 进行手动上传"
                 )
             _finish_pipeline(
                 "completed_with_upload_failures",
