@@ -620,6 +620,8 @@ def _process_artifacts_in_dir(
             upload_format,
             "--attempt-timeout",
             str(effective_timeout),
+            "--attempt-timeout-mode",
+            "fixed",
             "--max-retries",
             "1",
         ])

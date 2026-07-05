@@ -26,7 +26,8 @@ if str(_ROOT) not in sys.path:
 
 MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 2
-DEFAULT_ATTEMPT_TIMEOUT_SECONDS = 1800  # 30 minutes; run_pipeline uses its own 120s default
+DEFAULT_ATTEMPT_TIMEOUT_SECONDS = 120
+UPLOAD_TIMEOUT_BASE_FILE_COUNT = 5
 FILE_PATTERNS = {
     "json": "*.json",
     "parquet": "*.parquet",
@@ -75,6 +76,16 @@ def print_upload_plan(
     print(f"HF_XET_HIGH_PERFORMANCE={os.environ.get('HF_XET_HIGH_PERFORMANCE', 'not set')}")
 
 
+def scaled_attempt_timeout(timeout_seconds: int, file_count: int) -> int:
+    base_timeout = max(1, int(timeout_seconds))
+    normalized_count = max(1, int(file_count))
+    return max(
+        1,
+        (base_timeout * normalized_count + UPLOAD_TIMEOUT_BASE_FILE_COUNT - 1)
+        // UPLOAD_TIMEOUT_BASE_FILE_COUNT,
+    )
+
+
 def _upload_once(root: str, repo_id: str, pattern: str) -> None:
     api = HfApi()
     api.upload_large_folder(
@@ -120,7 +131,11 @@ def upload_with_timeout(root: Path, repo_id: str, pattern: str, timeout_seconds:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Upload result files to HF with Xet")
-    parser.add_argument("dir", nargs="?", default="results", help="Directory with result files")
+    parser.add_argument("dir", nargs="?", default=None, help="Directory with result files")
+    parser.add_argument(
+        "--results-dir",
+        help="Directory with result files; equivalent to the positional dir argument",
+    )
     parser.add_argument("--repo-id", required=True, help="Target HF dataset repo_id, e.g. user/dataset")
     parser.add_argument(
         "--file-format",
@@ -132,7 +147,20 @@ def main() -> None:
         "--attempt-timeout",
         type=int,
         default=int(os.environ.get("HF_UPLOAD_ATTEMPT_TIMEOUT", DEFAULT_ATTEMPT_TIMEOUT_SECONDS)),
-        help="Seconds before one upload attempt is treated as stuck (default: 1800, i.e. 30min)",
+        help=(
+            "Base seconds before one upload attempt is treated as stuck; "
+            f"auto mode scales this by file count relative to {UPLOAD_TIMEOUT_BASE_FILE_COUNT} files "
+            f"(default: {DEFAULT_ATTEMPT_TIMEOUT_SECONDS})"
+        ),
+    )
+    parser.add_argument(
+        "--attempt-timeout-mode",
+        choices=["auto", "fixed"],
+        default="auto",
+        help=(
+            "auto scales --attempt-timeout by file count; fixed uses it as an absolute timeout "
+            "(default: auto)"
+        ),
     )
     parser.add_argument(
         "--max-retries",
@@ -143,7 +171,11 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="Preview only, no upload")
     args = parser.parse_args()
 
-    root = Path(args.dir).resolve()
+    if args.dir and args.results_dir:
+        parser.error("Specify either positional dir or --results-dir, not both")
+
+    results_dir = args.results_dir or args.dir or "results"
+    root = Path(results_dir).expanduser().resolve()
     if not root.is_dir():
         print(f"Not a directory: {root}")
         sys.exit(1)
@@ -157,7 +189,19 @@ def main() -> None:
     api = HfApi()
     repo_id, auto_namespace = resolve_dataset_repo_id(api, args.repo_id)
     print_upload_plan(root, len(files), args.file_format, args.repo_id, repo_id, auto_namespace)
-    print(f"Attempt timeout: {args.attempt_timeout}s")
+    effective_timeout = (
+        scaled_attempt_timeout(args.attempt_timeout, len(files))
+        if args.attempt_timeout_mode == "auto"
+        else max(1, int(args.attempt_timeout))
+    )
+    if args.attempt_timeout_mode == "auto":
+        print(
+            f"Attempt timeout: {effective_timeout}s "
+            f"({len(files)} {args.file_format} files; "
+            f"base {args.attempt_timeout}s/{UPLOAD_TIMEOUT_BASE_FILE_COUNT} files)"
+        )
+    else:
+        print(f"Attempt timeout: {effective_timeout}s (fixed)")
     if args.dry_run:
         print("\nDRY RUN - no upload")
         sys.exit(0)
@@ -166,7 +210,7 @@ def main() -> None:
     for attempt in range(1, max_retries + 1):
         try:
             print(f"\nAttempt {attempt}/{max_retries}")
-            upload_with_timeout(root, repo_id, pattern, args.attempt_timeout)
+            upload_with_timeout(root, repo_id, pattern, effective_timeout)
             print(f"Done: {dataset_url(repo_id)}")
             deleted = delete_uploaded_files(root, args.file_format)
             if deleted > 0:
