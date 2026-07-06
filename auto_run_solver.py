@@ -4,6 +4,7 @@ TexasSolver Console 自动批量求解脚本
 支持容错机制和详细统计信息
 """
 
+import json
 import subprocess
 import os
 import sys
@@ -320,6 +321,7 @@ class SolveResult:
     index: int
     board: str
     success: bool
+    status: str = "pending"
     elapsed: float = 0.0
     error: str = ""
     retries: int = 0
@@ -349,6 +351,66 @@ class SolveStats:
         if not successful:
             return 0.0
         return sum(successful) / len(successful)
+
+
+def _atomic_write_json(path: Path, data: Dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    tmp_path.replace(path)
+
+
+def _solve_result_to_dict(result: SolveResult) -> Dict:
+    status = result.status
+    if status == "pending":
+        status = "completed" if result.success else "failed"
+    return {
+        "index": result.index,
+        "board": result.board,
+        "status": status,
+        "success": result.success,
+        "elapsed": result.elapsed,
+        "error": result.error,
+        "retries": result.retries,
+        "config_file": result.config_file,
+        "output_file": result.output_file,
+    }
+
+
+def write_report_json(
+    report_path: Path,
+    stats: SolveStats,
+    *,
+    scenario: str,
+    range_expr: str,
+    cards_file: str,
+    result_path: Path,
+    interrupted: bool,
+) -> None:
+    results = [_solve_result_to_dict(result) for result in stats.results]
+    completed_indices = [item["index"] for item in results if item["status"] == "completed"]
+    skipped_indices = [item["index"] for item in results if item["status"] == "skipped"]
+    failed_indices = [item["index"] for item in results if item["status"] in {"failed", "skipped"}]
+    report = {
+        "generated_at": datetime.now().astimezone().isoformat(),
+        "scenario": scenario,
+        "range": range_expr,
+        "cards_file": cards_file,
+        "result_path": str(result_path),
+        "interrupted": interrupted,
+        "total": stats.total,
+        "success": stats.success,
+        "failed": stats.failed,
+        "skipped": stats.skipped,
+        "total_time": stats.total_time,
+        "completed_indices": completed_indices,
+        "failed_indices": failed_indices,
+        "skipped_indices": skipped_indices,
+        "results": results,
+    }
+    _atomic_write_json(report_path, report)
 
 
 def auto_compile_solver() -> bool:
@@ -829,7 +891,12 @@ def print_summary(stats: SolveStats, start_time: datetime):
     print("-" * 70)
     
     for result in stats.results:
-        status = "✓ 成功" if result.success else "✗ 失败"
+        if result.status == "completed":
+            status = "✓ 成功"
+        elif result.status == "skipped":
+            status = "↷ 跳过"
+        else:
+            status = "✗ 失败"
         elapsed_str = f"{result.elapsed:.1f}秒" if result.success else "-"
         note = result.error if result.error else ""
         print(f"{result.index:<6} {result.board:<15} {status:<8} {elapsed_str:<12} {result.retries:<6} {note}")
@@ -1037,6 +1104,12 @@ def main():
         help="结果输出目录（默认: solver/results；相对路径按 solver 根目录解析）",
     )
     parser.add_argument(
+        "--report-json",
+        type=str,
+        default=None,
+        help="写出本次求解的逐牌面 JSON 报告，供 run_pipeline.py 汇总状态",
+    )
+    parser.add_argument(
         "--estimate-memory",
         action="store_true",
         help="在 build_tree 后执行 estimate_memory 并输出内存估算（默认关闭）",
@@ -1230,7 +1303,11 @@ def main():
                 print(f"[错误] 生成配置文件失败: {e}")
                 stats.failed += 1
                 stats.results.append(SolveResult(
-                    index=idx, board=board, success=False, error=f"配置文件生成失败: {e}"
+                    index=idx,
+                    board=board,
+                    success=False,
+                    status="failed",
+                    error=f"配置文件生成失败: {e}"
                 ))
                 continue
             
@@ -1245,10 +1322,14 @@ def main():
                 no_output_timeout=args.no_output_timeout,
             )
             
+            result_status = "completed" if success else (
+                "skipped" if retries >= args.max_retries else "failed"
+            )
             result = SolveResult(
                 index=idx,
                 board=board,
                 success=success,
+                status=result_status,
                 elapsed=elapsed,
                 error=error,
                 retries=retries,
@@ -1298,6 +1379,21 @@ def main():
             print(f"   序号: {resume_expr}")
             print(f"\n[继续] 可以使用以下命令继续:")
             print(f"   python auto_run_solver.py {resume_expr}")
+
+    if args.report_json:
+        try:
+            write_report_json(
+                Path(args.report_json).expanduser(),
+                stats,
+                scenario=args.scenario,
+                range_expr=args.range,
+                cards_file=args.file,
+                result_path=RESULTS_DIR,
+                interrupted=interrupted,
+            )
+            print(f"\n[Report] 逐牌面报告: {args.report_json}")
+        except Exception as e:
+            print(f"\n[警告] 写入逐牌面报告失败: {e}")
 
 
 if __name__ == "__main__":

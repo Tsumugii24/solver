@@ -399,6 +399,71 @@ def _run_code(cmd: list, cwd: Path = None) -> int:
     return r.returncode
 
 
+def _batch_report_path(status_file: Optional[Path], batch_number: int) -> Path:
+    if status_file:
+        return status_file.parent / f"{status_file.stem}.batch-{batch_number}.json"
+    return RESULTS_DIR / ".pipeline-reports" / f"solver_pipeline.batch-{batch_number}.json"
+
+
+def _coerce_index_list(value: Any, allowed: Set[int]) -> List[int]:
+    if not isinstance(value, list):
+        return []
+    indices: List[int] = []
+    seen: Set[int] = set()
+    for item in value:
+        if not isinstance(item, int) or item not in allowed or item in seen:
+            continue
+        indices.append(item)
+        seen.add(item)
+    return indices
+
+
+def _extend_unique(target: List[int], values: List[int]) -> None:
+    seen = set(target)
+    for value in values:
+        if value in seen:
+            continue
+        target.append(value)
+        seen.add(value)
+
+
+def _read_batch_report(report_path: Path, batch: List[int]) -> Optional[Dict[str, Any]]:
+    if not report_path.exists():
+        return None
+    with open(report_path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+    if not isinstance(raw, dict):
+        return None
+
+    allowed = set(batch)
+    completed = _coerce_index_list(raw.get("completed_indices"), allowed)
+    skipped = _coerce_index_list(raw.get("skipped_indices"), allowed)
+    failed = _coerce_index_list(raw.get("failed_indices"), allowed)
+    _extend_unique(failed, skipped)
+    completed_set = set(completed)
+    skipped = [index for index in skipped if index not in completed_set]
+    failed = [index for index in failed if index not in completed_set]
+
+    reported = set(completed) | set(failed)
+    missing = [index for index in batch if index not in reported]
+    _extend_unique(failed, missing)
+    abnormal = [index for index in failed if index not in set(skipped)]
+
+    results = raw.get("results")
+    if not isinstance(results, list):
+        results = []
+
+    return {
+        "completed_indices": completed,
+        "failed_indices": failed,
+        "skipped_indices": skipped,
+        "abnormal_indices": abnormal,
+        "missing_indices": missing,
+        "interrupted": bool(raw.get("interrupted")),
+        "results": results,
+    }
+
+
 def _parse_range(expr: str, max_val: int) -> list:
     """解析范围表达式为序号列表"""
     from auto_run_solver import parse_range_expr
@@ -1435,7 +1500,9 @@ def main():
     upload_disabled_due_network = False
     completed_indices: List[int] = []
     failed_indices: List[int] = []
+    skipped_indices: List[int] = []
     tracker: Optional[PipelineStatusTracker] = None
+    status_file: Optional[Path] = None
     summary = PipelineRunSummary()
     summary.configure(
         range_input=args.range,
@@ -1485,8 +1552,10 @@ def main():
             assigned_indices=indices,
             completed_indices=completed_indices,
             failed_indices=failed_indices,
+            skipped_indices=skipped_indices,
             completed_count=0,
             failed_count=0,
+            skipped_count=0,
             total_batches=len(batches),
             current_batch=0,
             export_format=args.export_format,
@@ -1541,6 +1610,11 @@ def main():
             print(f"\n{'='*60}")
             print(f"[Batch {i}/{len(batches)}] Solving: {expr}")
             print("=" * 60)
+            report_path = _batch_report_path(status_file, i)
+            try:
+                report_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
             solver_cmd = [
                 sys.executable, str(SCRIPT_DIR / "auto_run_solver.py"),
@@ -1552,6 +1626,7 @@ def main():
                 "--max-iteration", str(args.max_iteration),
                 "--dump-format", args.export_format,
                 "--result-path", str(RESULTS_DIR),
+                "--report-json", str(report_path),
             ]
             if range_file is not None:
                 solver_cmd.extend(["--range-path", str(range_file)])
@@ -1564,27 +1639,48 @@ def main():
             if args.estimate_memory:
                 solver_cmd.append("--estimate-memory")
             batch_success = _run(solver_cmd)
-            if batch_success:
-                completed_indices.extend(batch)
-                if tracker:
-                    tracker.update(
-                        completed_indices=completed_indices,
-                        failed_indices=failed_indices,
-                        completed_count=len(completed_indices),
-                        failed_count=len(failed_indices),
-                        last_solver_success=True,
-                    )
+            batch_report = _read_batch_report(report_path, batch)
+            if batch_report:
+                batch_completed = batch_report["completed_indices"]
+                batch_failed = batch_report["failed_indices"]
+                batch_skipped = batch_report["skipped_indices"]
+                batch_abnormal = batch_report["abnormal_indices"]
+            elif batch_success:
+                batch_completed = batch
+                batch_failed = []
+                batch_skipped = []
+                batch_abnormal = []
             else:
-                failed_indices.extend(batch)
-                print(f"[Failed] Solver batch {i} not fully successful, continue to next batch")
-                if tracker:
-                    tracker.update(
-                        completed_indices=completed_indices,
-                        failed_indices=failed_indices,
-                        completed_count=len(completed_indices),
-                        failed_count=len(failed_indices),
-                        last_solver_success=False,
-                    )
+                batch_completed = []
+                batch_failed = batch
+                batch_skipped = []
+                batch_abnormal = batch
+
+            _extend_unique(completed_indices, batch_completed)
+            _extend_unique(failed_indices, batch_failed)
+            _extend_unique(skipped_indices, batch_skipped)
+
+            last_solver_success = batch_success and len(batch_failed) == 0
+            if batch_failed:
+                print(
+                    f"[Failed] Solver batch {i} has {len(batch_failed)} failed board(s) "
+                    f"({len(batch_skipped)} skipped, {len(batch_abnormal)} abnormal); continue to next batch"
+                )
+            if tracker:
+                tracker.update(
+                    completed_indices=completed_indices,
+                    failed_indices=failed_indices,
+                    skipped_indices=skipped_indices,
+                    completed_count=len(completed_indices),
+                    failed_count=len(failed_indices),
+                    skipped_count=len(skipped_indices),
+                    last_solver_success=last_solver_success,
+                    last_batch_report=str(report_path),
+                    last_batch_completed_indices=batch_completed,
+                    last_batch_failed_indices=batch_failed,
+                    last_batch_skipped_indices=batch_skipped,
+                    last_batch_abnormal_indices=batch_abnormal,
+                )
 
             export_count = _count_export_files(args.export_format)
             if export_count >= batch_size:

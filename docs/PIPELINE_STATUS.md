@@ -84,7 +84,7 @@
 |------|------|
 | 流水线启动、参数校验完成后 | 写入初始状态，`status=running` |
 | 每个 batch 开始前 | 更新 `current_batch`、`batch_expr` 等 |
-| solver batch 失败 | 更新 `last_solver_success=false` |
+| solver batch 完成 | 读取逐牌面报告，更新 completed / failed / skipped indices |
 | 触发上传前 | 更新 `phase=uploading` |
 | 上传成功/失败 | 更新 `last_upload_success`、`phase=solving` |
 | 最终 cleanup 上传 | 更新 `phase=cleanup` |
@@ -130,6 +130,13 @@
 | `total_tasks` | int | 待求解牌面总数 |
 | `total_batches` | int | solver batch 总数 |
 | `current_batch` | int | 当前 batch 序号（1-based，运行中为 ≥1） |
+| `assigned_indices` | int[] | 当前任务分配的全部牌面序号 |
+| `completed_indices` | int[] | 已成功求解并导出的牌面序号 |
+| `failed_indices` | int[] | 所有未成功牌面序号，包含 skipped 与异常失败 |
+| `skipped_indices` | int[] | 已尝试求解但超过重试次数后跳过的牌面序号 |
+| `completed_count` | int | `completed_indices` 数量 |
+| `failed_count` | int | `failed_indices` 数量 |
+| `skipped_count` | int | `skipped_indices` 数量 |
 
 ### 运行中可能出现的字段
 
@@ -139,7 +146,12 @@
 | `batch_size_current` | int | 当前 batch 包含的牌面数 |
 | `phase` | string | 当前阶段：`solving` / `uploading` / `cleanup` |
 | `pending_export_count` | int | `results/` 中待处理导出文件数 |
-| `last_solver_success` | bool | 最近一次 solver batch 是否全部成功 |
+| `last_solver_success` | bool | 最近一次 solver batch 是否没有 failed/skipped 牌面 |
+| `last_batch_report` | string | 最近一次 `auto_run_solver.py` 逐牌面 JSON 报告路径 |
+| `last_batch_completed_indices` | int[] | 最近一次 batch 成功牌面 |
+| `last_batch_failed_indices` | int[] | 最近一次 batch 未成功牌面 |
+| `last_batch_skipped_indices` | int[] | 最近一次 batch skipped 牌面 |
+| `last_batch_abnormal_indices` | int[] | 最近一次 batch 非 skipped 的失败或缺失牌面 |
 | `last_upload_success` | bool | 最近一次上传是否成功 |
 
 ### 结束时的额外字段
@@ -369,6 +381,13 @@ python run_pipeline.py 1-10 --repo-id Tsumugii/3ia-16.5-3od-13
   "no_upload": false,
   "convert_only": false,
   "total_tasks": 10,
+  "assigned_indices": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "completed_indices": [],
+  "failed_indices": [],
+  "skipped_indices": [],
+  "completed_count": 0,
+  "failed_count": 0,
+  "skipped_count": 0,
   "total_batches": 2,
   "current_batch": 1,
   "batch_expr": "1-5",
@@ -377,6 +396,7 @@ python run_pipeline.py 1-10 --repo-id Tsumugii/3ia-16.5-3od-13
   "upload_format": "parquet",
   "cards_file": "cards.txt",
   "batch_size": 5,
+  "last_batch_report": "/home/user/run/solver_running_status.batch-1.json",
   "command": "python run_pipeline.py 1-10 --repo-id Tsumugii/3ia-16.5-3od-13",
   "updated_at": "2026-06-13T10:05:00Z"
 }
