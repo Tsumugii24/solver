@@ -71,10 +71,13 @@ def _default_pipeline_status_file() -> Path:
 DEFAULT_PIPELINE_STATUS_FILE = _default_pipeline_status_file()
 
 from auto_run_solver import (
+    SCENARIO_CONFIG,
+    SCENARIO_DEFAULTS,
     SCENARIO_SUBDIRS,
     infer_scenario_from_name,
     infer_scenario_from_range_path,
 )
+from solver_setting import register_solver_setting_snapshot, snapshot_for_scenario
 
 
 def _utc_now() -> str:
@@ -1199,8 +1202,13 @@ def main():
         "--scenario",
         type=str,
         default=None,
-        choices=list(SCENARIO_SUBDIRS),
-        help="与 --range-file 联用：显式指定 ranges/<scenario>/ 下的场景子目录",
+        help="Setting/场景 ID；与 --range-file 联用时也作为 ranges/<scenario>/ 子目录",
+    )
+    parser.add_argument(
+        "--setting-snapshot",
+        type=str,
+        default=None,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--range-file",
@@ -1290,6 +1298,23 @@ def main():
         help="不写入 pipeline 状态文件",
     )
     args = parser.parse_args()
+    try:
+        if args.setting_snapshot:
+            setting = register_solver_setting_snapshot(
+                args.setting_snapshot,
+                SCENARIO_CONFIG,
+                SCENARIO_DEFAULTS,
+                expected_id=args.scenario,
+            )
+            if args.scenario is None:
+                args.scenario = setting["id"]
+        if args.scenario and (
+            args.scenario not in SCENARIO_CONFIG or args.scenario not in SCENARIO_DEFAULTS
+        ):
+            available = ", ".join(sorted(SCENARIO_CONFIG))
+            raise ValueError(f"Unknown Setting/scenario {args.scenario!r}. Available: {available}")
+    except ValueError as exc:
+        parser.error(str(exc))
 
     if not args.no_upload and not args.convert_only:
         if args.upload_format == "json" and args.export_format != "json":
@@ -1448,6 +1473,11 @@ def main():
     selected_scenario = args.scenario or (infer_scenario_from_range_path(range_file) if range_file else None)
     if not args.convert_only and not selected_scenario:
         print("[错误] 使用 --oop-range/--ip-range 时必须同时指定 --scenario")
+        sys.exit(1)
+    if selected_scenario and (
+        selected_scenario not in SCENARIO_CONFIG or selected_scenario not in SCENARIO_DEFAULTS
+    ):
+        print(f"[错误] 未知 Setting/场景: {selected_scenario}")
         sys.exit(1)
 
     if repo_id and not args.convert_only:
@@ -1621,6 +1651,11 @@ def main():
                 expr,
                 "--file", args.file,
                 "--scenario", selected_scenario,
+                "--setting-snapshot", snapshot_for_scenario(
+                    selected_scenario,
+                    SCENARIO_CONFIG,
+                    SCENARIO_DEFAULTS,
+                ),
                 "--thread-num", str(args.thread_num),
                 "--use-isomorphism", str(args.use_isomorphism),
                 "--max-iteration", str(args.max_iteration),
