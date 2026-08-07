@@ -18,6 +18,8 @@ from datetime import datetime
 import argparse
 from queue import Queue, Empty
 
+from solver_setting import register_solver_setting_snapshot
+
 
 # ==================== 配置 ====================
 # 脚本所在目录
@@ -1119,8 +1121,13 @@ def main():
         "--scenario",
         type=str,
         required=True,
-        choices=list(SCENARIO_CONFIG.keys()),
-        help="场景类型，决定使用的配置模板、range 目录及默认 pot/stack",
+        help="Setting/场景 ID，决定使用的配置模板、range 目录及默认 pot/stack",
+    )
+    parser.add_argument(
+        "--setting-snapshot",
+        type=str,
+        default=None,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--range-file",
@@ -1148,6 +1155,19 @@ def main():
     )
     
     args = parser.parse_args()
+    try:
+        if args.setting_snapshot:
+            register_solver_setting_snapshot(
+                args.setting_snapshot,
+                SCENARIO_CONFIG,
+                SCENARIO_DEFAULTS,
+                expected_id=args.scenario,
+            )
+        if args.scenario not in SCENARIO_CONFIG or args.scenario not in SCENARIO_DEFAULTS:
+            available = ", ".join(sorted(SCENARIO_CONFIG))
+            raise ValueError(f"Unknown Setting/scenario {args.scenario!r}. Available: {available}")
+    except ValueError as exc:
+        parser.error(str(exc))
     global RESULTS_DIR
     if args.result_path:
         result_path = Path(args.result_path).expanduser()
