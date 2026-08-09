@@ -18,7 +18,7 @@ from datetime import datetime
 import argparse
 from queue import Queue, Empty
 
-from solver_setting import register_solver_setting_snapshot
+from solver_setting import register_solver_setting_file, register_solver_setting_snapshot
 
 
 # ==================== 配置 ====================
@@ -1123,11 +1123,18 @@ def main():
         required=True,
         help="Setting/场景 ID，决定使用的配置模板、range 目录及默认 pot/stack",
     )
-    parser.add_argument(
+    setting_source = parser.add_mutually_exclusive_group()
+    setting_source.add_argument(
         "--setting-snapshot",
         type=str,
         default=None,
         help=argparse.SUPPRESS,
+    )
+    setting_source.add_argument(
+        "--setting-file",
+        type=str,
+        default=None,
+        help="Job-scoped Setting Library JSON file supplied by run_pipeline.py",
     )
     parser.add_argument(
         "--range-file",
@@ -1156,7 +1163,14 @@ def main():
     
     args = parser.parse_args()
     try:
-        if args.setting_snapshot:
+        if args.setting_file:
+            register_solver_setting_file(
+                args.setting_file,
+                SCENARIO_CONFIG,
+                SCENARIO_DEFAULTS,
+                expected_id=args.scenario,
+            )
+        elif args.setting_snapshot:
             register_solver_setting_snapshot(
                 args.setting_snapshot,
                 SCENARIO_CONFIG,

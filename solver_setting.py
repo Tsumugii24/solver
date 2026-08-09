@@ -7,6 +7,7 @@ import binascii
 import json
 import math
 import re
+from pathlib import Path
 from string import Formatter
 from typing import Any, Dict, Mapping, MutableMapping, Optional
 
@@ -14,6 +15,7 @@ from typing import Any, Dict, Mapping, MutableMapping, Optional
 SETTING_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 MAX_SETTING_ID_LENGTH = 96
 MAX_CONFIG_TEMPLATE_BYTES = 256 * 1024
+MAX_SETTING_SNAPSHOT_BYTES = MAX_CONFIG_TEMPLATE_BYTES * 2
 SUPPORTED_CONFIG_PLACEHOLDERS = {
     "pot",
     "effective_stack",
@@ -57,13 +59,21 @@ def decode_solver_setting_snapshot(encoded: str) -> Dict[str, Any]:
         payload = base64.b64decode(encoded.strip(), validate=True)
     except (binascii.Error, ValueError) as exc:
         raise ValueError("Setting snapshot is not valid base64.") from exc
-    if len(payload) > MAX_CONFIG_TEMPLATE_BYTES * 2:
+    if len(payload) > MAX_SETTING_SNAPSHOT_BYTES:
         raise ValueError("Setting snapshot is too large.")
+    return _decode_solver_setting_json(payload, "Setting snapshot")
+
+
+def load_solver_setting_file(filename: str | Path) -> Dict[str, Any]:
+    """Read and validate a Setting Library item from a JSON file."""
+    path = Path(filename).expanduser()
     try:
-        value = json.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ValueError("Setting snapshot is not valid UTF-8 JSON.") from exc
-    return normalize_solver_setting_snapshot(value)
+        payload = path.read_bytes()
+    except OSError as exc:
+        raise ValueError(f"Unable to read Setting file {path}: {exc}") from exc
+    if len(payload) > MAX_SETTING_SNAPSHOT_BYTES:
+        raise ValueError("Setting file is too large.")
+    return _decode_solver_setting_json(payload, "Setting file")
 
 
 def normalize_solver_setting_snapshot(value: Mapping[str, Any]) -> Dict[str, Any]:
@@ -97,7 +107,39 @@ def register_solver_setting_snapshot(
     expected_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Install one snapshot into the current process's scenario registries."""
-    setting = decode_solver_setting_snapshot(encoded)
+    return register_solver_setting(
+        decode_solver_setting_snapshot(encoded),
+        scenario_config,
+        scenario_defaults,
+        expected_id=expected_id,
+    )
+
+
+def register_solver_setting_file(
+    filename: str | Path,
+    scenario_config: MutableMapping[str, str],
+    scenario_defaults: MutableMapping[str, Dict[str, float]],
+    *,
+    expected_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Install a validated job-scoped Setting JSON file into the registries."""
+    return register_solver_setting(
+        load_solver_setting_file(filename),
+        scenario_config,
+        scenario_defaults,
+        expected_id=expected_id,
+    )
+
+
+def register_solver_setting(
+    setting: Mapping[str, Any],
+    scenario_config: MutableMapping[str, str],
+    scenario_defaults: MutableMapping[str, Dict[str, float]],
+    *,
+    expected_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Install one already-decoded Setting into the current process registries."""
+    setting = normalize_solver_setting_snapshot(setting)
     if expected_id is not None and setting["id"] != expected_id:
         raise ValueError(
             f"Setting snapshot id {setting['id']!r} does not match --scenario {expected_id!r}."
@@ -109,6 +151,14 @@ def register_solver_setting_snapshot(
         "effective_stack": setting["effectiveStack"],
     }
     return setting
+
+
+def _decode_solver_setting_json(payload: bytes, source: str) -> Dict[str, Any]:
+    try:
+        value = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{source} is not valid UTF-8 JSON.") from exc
+    return normalize_solver_setting_snapshot(value)
 
 
 def snapshot_for_scenario(

@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,8 @@ from auto_run_solver import SIA_SOD_CONFIG, generate_config_file
 from solver_setting import (
     decode_solver_setting_snapshot,
     encode_solver_setting_snapshot,
+    load_solver_setting_file,
+    register_solver_setting_file,
     register_solver_setting_snapshot,
     snapshot_for_scenario,
 )
@@ -51,6 +54,25 @@ class SolverSettingSnapshotTest(unittest.TestCase):
         )
 
         self.assertEqual(registered["id"], "custom-setting")
+        self.assertEqual(configs["custom-setting"], SIA_SOD_CONFIG)
+        self.assertEqual(defaults["custom-setting"], {"pot": 7, "effective_stack": 91})
+
+    def test_loads_and_registers_job_scoped_setting_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            setting_path = Path(temp_dir) / "setting.json"
+            setting_path.write_text(json.dumps(self.setting()), encoding="utf-8")
+            loaded = load_solver_setting_file(setting_path)
+            configs = {}
+            defaults = {}
+            registered = register_solver_setting_file(
+                setting_path,
+                configs,
+                defaults,
+                expected_id="custom-setting",
+            )
+
+        self.assertEqual(loaded["id"], "custom-setting")
+        self.assertEqual(registered, loaded)
         self.assertEqual(configs["custom-setting"], SIA_SOD_CONFIG)
         self.assertEqual(defaults["custom-setting"], {"pot": 7, "effective_stack": 91})
 
@@ -128,6 +150,30 @@ class SolverSettingSnapshotTest(unittest.TestCase):
         self.assertIn("请提供 --range-path", result.stdout)
         self.assertNotIn("invalid choice", result.stderr)
 
+    def test_auto_run_solver_accepts_job_scoped_setting_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            setting_path = Path(temp_dir) / "setting.json"
+            setting_path.write_text(json.dumps(self.setting()), encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "auto_run_solver.py"),
+                    "1",
+                    "--scenario",
+                    "custom-setting",
+                    "--setting-file",
+                    str(setting_path),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("请提供 --range-path", result.stdout)
+        self.assertNotIn("Unknown Setting/scenario", result.stderr)
+
     def test_run_pipeline_accepts_monitor_snapshot_for_custom_setting(self):
         encoded = encode_solver_setting_snapshot(self.setting())
 
@@ -152,6 +198,32 @@ class SolverSettingSnapshotTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
         self.assertIn("[DRY RUN]", result.stdout)
         self.assertNotIn("invalid choice", result.stderr)
+
+    def test_run_pipeline_accepts_monitor_setting_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            setting_path = Path(temp_dir) / "setting.json"
+            setting_path.write_text(json.dumps(self.setting()), encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "run_pipeline.py"),
+                    "1",
+                    "--dry-run",
+                    "--no-upload",
+                    "--scenario",
+                    "custom-setting",
+                    "--setting-file",
+                    str(setting_path),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        self.assertIn("[DRY RUN]", result.stdout)
+        self.assertNotIn("Unknown Setting/scenario", result.stderr)
 
 
 if __name__ == "__main__":

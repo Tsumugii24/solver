@@ -77,7 +77,11 @@ from auto_run_solver import (
     infer_scenario_from_name,
     infer_scenario_from_range_path,
 )
-from solver_setting import register_solver_setting_snapshot, snapshot_for_scenario
+from solver_setting import (
+    register_solver_setting_file,
+    register_solver_setting_snapshot,
+    snapshot_for_scenario,
+)
 
 
 def _utc_now() -> str:
@@ -1204,11 +1208,18 @@ def main():
         default=None,
         help="Setting/场景 ID；与 --range-file 联用时也作为 ranges/<scenario>/ 子目录",
     )
-    parser.add_argument(
+    setting_source = parser.add_mutually_exclusive_group()
+    setting_source.add_argument(
         "--setting-snapshot",
         type=str,
         default=None,
         help=argparse.SUPPRESS,
+    )
+    setting_source.add_argument(
+        "--setting-file",
+        type=str,
+        default=None,
+        help="Job-scoped Setting Library JSON file supplied by Server Monitor",
     )
     parser.add_argument(
         "--range-file",
@@ -1298,8 +1309,22 @@ def main():
         help="不写入 pipeline 状态文件",
     )
     args = parser.parse_args()
+    setting_file_path: Optional[Path] = None
     try:
-        if args.setting_snapshot:
+        if args.setting_file:
+            setting_file_path = Path(args.setting_file).expanduser()
+            if not setting_file_path.is_absolute():
+                setting_file_path = SCRIPT_DIR / setting_file_path
+            setting_file_path = setting_file_path.resolve()
+            setting = register_solver_setting_file(
+                setting_file_path,
+                SCENARIO_CONFIG,
+                SCENARIO_DEFAULTS,
+                expected_id=args.scenario,
+            )
+            if args.scenario is None:
+                args.scenario = setting["id"]
+        elif args.setting_snapshot:
             setting = register_solver_setting_snapshot(
                 args.setting_snapshot,
                 SCENARIO_CONFIG,
@@ -1651,11 +1676,6 @@ def main():
                 expr,
                 "--file", args.file,
                 "--scenario", selected_scenario,
-                "--setting-snapshot", snapshot_for_scenario(
-                    selected_scenario,
-                    SCENARIO_CONFIG,
-                    SCENARIO_DEFAULTS,
-                ),
                 "--thread-num", str(args.thread_num),
                 "--use-isomorphism", str(args.use_isomorphism),
                 "--max-iteration", str(args.max_iteration),
@@ -1663,6 +1683,17 @@ def main():
                 "--result-path", str(RESULTS_DIR),
                 "--report-json", str(report_path),
             ]
+            if setting_file_path is not None:
+                solver_cmd.extend(["--setting-file", str(setting_file_path)])
+            else:
+                solver_cmd.extend([
+                    "--setting-snapshot",
+                    snapshot_for_scenario(
+                        selected_scenario,
+                        SCENARIO_CONFIG,
+                        SCENARIO_DEFAULTS,
+                    ),
+                ])
             if range_file is not None:
                 solver_cmd.extend(["--range-path", str(range_file)])
             else:

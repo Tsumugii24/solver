@@ -306,11 +306,11 @@ if data.get("status") == "running":
 | `soa-sid` | 5 | 98 | SOA_SID_CONFIG |
 | `3ia-3od` | 16 | 92 | TOA_TID_CONFIG |
 
-### Monitor Setting Library 快照
+### Monitor Setting Library 文件
 
-Server Monitor 可以通过内部参数 `--setting-snapshot <base64>` 将 Setting Library 中的完整求解配置传给 `run_pipeline.py`。快照至少包含 Setting ID、`configTemplate`、`pot` 和 `effectiveStack`。`run_pipeline.py` 会先验证并注册该 Setting，再把同一份有效配置继续传给独立启动的 `auto_run_solver.py` 子进程，因此新建 Setting 和修改过的内置 Setting 都不需要预先写入服务器代码中的 `SCENARIO_CONFIG`。
+Server Monitor 会先把当前任务固定的 Setting 写入 `~/solver/job-settings/<job-id>.json`，然后通过 `--setting-file <path>` 传给 `run_pipeline.py`。文件包含运行所需的 Setting ID、`configTemplate`、`pot` 和 `effectiveStack`，避免把多 KB 的 Base64 内容直接放进 tmux 启动命令。`run_pipeline.py` 会验证并注册该 Setting，再把同一个文件传给独立启动的 `auto_run_solver.py` 子进程，因此新建 Setting 和修改过的内置 Setting 都不需要预先写入服务器代码中的 `SCENARIO_CONFIG`。
 
-快照会校验 ID、数值和模板占位符，且 `--scenario` 必须与快照 ID 一致。状态文件中的 `scenario` 保存实际 Setting ID。没有传快照时，以上内置 Scenario 继续按原逻辑工作；旧版 Monitor 使用的临时注入启动命令也会由新的跨进程转发逻辑兼容。
+Setting 文件会校验大小、UTF-8 JSON、ID、数值和模板占位符，且 `--scenario` 必须与文件中的 ID 一致。状态文件中的 `scenario` 保存实际 Setting ID。`--setting-file` 与旧参数 `--setting-snapshot <base64>` 互斥；后者继续保留以执行迁移前已经排队的任务。两者都没有提供时，内置 Scenario 继续按原逻辑工作。
 
 ### scenario 推断规则
 
